@@ -71,3 +71,13 @@
 "Failed to start MasterDnsVPN client." = "Failed to start MasterDnsVPN client.";
 
 "No log lines yet." = "No log lines yet.";
+
+"Diagnostics" = "Diagnostics";
+"Bound interface" = "Bound interface";
+"None" = "None";
+"Wi-Fi" = "Wi-Fi";
+"Cellular" = "Cellular";
+"Wired" = "Wired";
+"Other" = "Other";
+"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up.";
+"Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN." = "Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN.";

@@ -23,6 +23,7 @@ public final class ClientViewModel: ObservableObject {
     private let profileStore = ProfileStore.shared
     private let settingsStore = AppSettingsStore.shared
     private let pinger = ProfilePinger()
+    public let physicalInterfaceMonitor = PhysicalInterfaceMonitor()
     private var cancellables = Set<AnyCancellable>()
     private var startTask: Task<Void, Never>?
     private var stopTask: Task<Void, Never>?
@@ -38,6 +39,8 @@ public final class ClientViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] lines in self?.logs = lines }
             .store(in: &cancellables)
+
+        physicalInterfaceMonitor.start()
     }
 
     public var selectedProfileName: String {
@@ -167,6 +170,7 @@ public final class ClientViewModel: ObservableObject {
             return
         }
         let settingsSnapshot = settings
+        let boundInterface = physicalInterfaceMonitor.currentName
         status = .starting
         AppLogger.shared.append("Starting Zanoza tunnel for \(profile.domain)...")
 
@@ -183,7 +187,8 @@ public final class ClientViewModel: ObservableObject {
                         EngineStartOptions(
                             profile: profile,
                             settings: settingsSnapshot,
-                            runtimeDirectory: runtimeDir
+                            runtimeDirectory: runtimeDir,
+                            boundInterface: boundInterface
                         ),
                         log: { line in
                             Task { @MainActor in AppLogger.shared.append(line) }
@@ -238,6 +243,7 @@ public final class ClientViewModel: ObservableObject {
         if status.isRunning {
             engine.stop()
         }
+        physicalInterfaceMonitor.stop()
         #if os(iOS)
         backgroundRuntimeKeeper.stop()
         #endif

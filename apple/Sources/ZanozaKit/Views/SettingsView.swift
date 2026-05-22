@@ -2,15 +2,18 @@ import SwiftUI
 
 public struct SettingsView: View {
     @Binding var settings: AppSettings
+    @ObservedObject var physicalInterfaceMonitor: PhysicalInterfaceMonitor
     let isTunnelRunning: Bool
     let onCommit: () -> Void
 
     public init(
         settings: Binding<AppSettings>,
+        physicalInterfaceMonitor: PhysicalInterfaceMonitor,
         isTunnelRunning: Bool,
         onCommit: @escaping () -> Void
     ) {
         _settings = settings
+        self.physicalInterfaceMonitor = physicalInterfaceMonitor
         self.isTunnelRunning = isTunnelRunning
         self.onCommit = onCommit
     }
@@ -44,9 +47,49 @@ public struct SettingsView: View {
             } footer: {
                 Text(AppLocalization.string("One resolver per line. Used by every profile; overrides the bundled list. Leave empty to fall back to the bundled public resolvers."))
             }
+
+            Section {
+                HStack {
+                    Text(AppLocalization.string("Bound interface"))
+                    Spacer()
+                    Text(diagnosticDisplay)
+                        .foregroundColor(.secondary)
+                        .font(.callout.monospacedDigit())
+                }
+            } header: {
+                Text(AppLocalization.string("Diagnostics"))
+            } footer: {
+                diagnosticFooter
+            }
         }
         .formStyle(.grouped)
         .onDisappear(perform: onCommit)
+    }
+
+    private var diagnosticDisplay: String {
+        let snapshot = physicalInterfaceMonitor.snapshot
+        if snapshot.name.isEmpty {
+            return AppLocalization.string("None")
+        }
+        let typeLabel: String
+        switch snapshot.type {
+        case .wifi: typeLabel = AppLocalization.string("Wi-Fi")
+        case .cellular: typeLabel = AppLocalization.string("Cellular")
+        case .wired: typeLabel = AppLocalization.string("Wired")
+        case .other, .none: typeLabel = AppLocalization.string("Other")
+        }
+        return "\(typeLabel) (\(snapshot.name))"
+    }
+
+    @ViewBuilder
+    private var diagnosticFooter: some View {
+        let snapshot = physicalInterfaceMonitor.snapshot
+        if snapshot.name.isEmpty {
+            Text(AppLocalization.string("Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up."))
+                .foregroundColor(.orange)
+        } else {
+            Text(AppLocalization.string("Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN."))
+        }
     }
 }
 

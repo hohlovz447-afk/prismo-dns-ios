@@ -13,7 +13,28 @@ import (
 
 	"masterdnsvpn-go/internal/client"
 	"masterdnsvpn-go/internal/config"
+	"masterdnsvpn-go/internal/netbind"
 )
+
+// SetBoundInterface tells the Go client to bind every subsequent outbound
+// UDP socket (DNS-tunnel queries, MTU probes) to the named BSD interface
+// (e.g. "en0", "pdp_ip0"). Empty string clears the binding.
+//
+// On iOS this is the fix for the "tunnel collapses when a consumer SOCKS
+// app is active" routing loop: a third-party VPN app's NetworkExtension
+// captures every non-loopback packet, including our outbound DNS queries,
+// and ricochets them back through our own SOCKS5 listener. Pinning the
+// socket to a physical interface bypasses the kernel's default route
+// table that the NetworkExtension hooks into.
+func SetBoundInterface(name string) {
+	netbind.SetInterface(name)
+}
+
+// BoundInterface returns the currently configured BSD interface name, or
+// "" if no binding is active.
+func BoundInterface() string {
+	return netbind.Current()
+}
 
 // LogWriter receives one log line at a time (no trailing newline).
 type LogWriter interface {
@@ -103,6 +124,7 @@ func Start(configTOML, resolversText, runtimeDir string) error {
 	runningWG.Add(1)
 	go func() {
 		defer runningWG.Done()
+		defer app.Cleanup()
 		defer func() {
 			if r := recover(); r != nil {
 				emit(fmt.Sprintf("client panic: %v\n%s", r, debug.Stack()))
@@ -113,6 +135,11 @@ func Start(configTOML, resolversText, runtimeDir string) error {
 		}
 	}()
 
+	if name := netbind.Current(); name != "" {
+		emit("Bound outbound interface: " + name)
+	} else {
+		emit("Bound outbound interface: none (default route)")
+	}
 	emit("Zanoza tunnel started.")
 	return nil
 }

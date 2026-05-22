@@ -71,3 +71,13 @@
 "Failed to start MasterDnsVPN client." = "Не удалось запустить клиент MasterDnsVPN.";
 
 "No log lines yet." = "Записей пока нет.";
+
+"Diagnostics" = "Диагностика";
+"Bound interface" = "Сетевой интерфейс";
+"None" = "Нет";
+"Wi-Fi" = "Wi-Fi";
+"Cellular" = "Сотовая сеть";
+"Wired" = "Ethernet";
+"Other" = "Прочее";
+"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Исходящий трафик может зацикливаться через другое VPN-приложение. Отключите другие VPN или перезапустите Zanoza после появления Wi-Fi или сотовой сети.";
+"Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN." = "Исходящие DNS-запросы привязаны к этому физическому интерфейсу и обходят любые другие активные VPN.";

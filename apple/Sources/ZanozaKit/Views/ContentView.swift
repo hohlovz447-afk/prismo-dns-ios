@@ -92,6 +92,7 @@ public struct ContentView: View {
             NavigationStack {
                 SettingsView(
                     settings: $viewModel.settings,
+                    physicalInterfaceMonitor: viewModel.physicalInterfaceMonitor,
                     isTunnelRunning: viewModel.status.isRunning,
                     onCommit: viewModel.saveSettings
                 )

@@ -24,6 +24,7 @@ import (
 	fragmentStore "masterdnsvpn-go/internal/fragmentstore"
 	"masterdnsvpn-go/internal/logger"
 	"masterdnsvpn-go/internal/mlq"
+	"masterdnsvpn-go/internal/netbind"
 	"masterdnsvpn-go/internal/security"
 	VpnProto "masterdnsvpn-go/internal/vpnproto"
 )
@@ -134,6 +135,10 @@ type Client struct {
 
 	// SOCKS5 brute-force rate limiter
 	socksRateLimit *socksRateLimiter
+
+	// netbind change-hook handle; drops the UDP socket pool when the device
+	// switches physical interfaces (Wi-Fi ↔ cellular).
+	netbindHook netbind.HookHandle
 }
 
 // clientStreamTXPacket represents a queued packet pending transmission or retransmission.
@@ -310,6 +315,11 @@ func New(cfg config.ClientConfig, log *logger.Logger, codec *security.Codec) *Cl
 		c.streamResolverFailoverCooldown = time.Second
 	}
 
+	// Drop cached UDP sockets whenever the bound physical interface changes,
+	// so subsequent dials re-bind to the new interface index. The hook is
+	// removed in Cleanup() to avoid leaking references to a stopped client.
+	c.netbindHook = netbind.OnChange(c.closeResolverConnPools)
+
 	c.balancer.SetStreamFailoverConfig(c.streamResolverFailoverResendThreshold, c.streamResolverFailoverCooldown)
 	c.balancer.SetAutoDisableConfig(
 		cfg.AutoDisableTimeoutServers,
@@ -343,6 +353,18 @@ func (c *Client) nextSessionInitRetryDelay(failures int) time.Duration {
 	}
 
 	return delay
+}
+
+// Cleanup releases process-global resources associated with this client.
+// Idempotent and safe to call after Run returns or on a never-started client.
+func (c *Client) Cleanup() {
+	if c == nil {
+		return
+	}
+	if c.netbindHook != 0 {
+		netbind.RemoveHook(c.netbindHook)
+		c.netbindHook = 0
+	}
 }
 
 // Run starts the main execution loop of the client.

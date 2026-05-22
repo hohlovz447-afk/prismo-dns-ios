@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"masterdnsvpn-go/internal/dnsparser"
+	"masterdnsvpn-go/internal/netbind"
 	VpnProto "masterdnsvpn-go/internal/vpnproto"
 )
 
@@ -236,12 +237,14 @@ func (c *Client) putRuntimeUDPBuffer(buf []byte) {
 }
 
 // dialUDPResolver resolves the resolver address and establishes a new UDP connection.
+// Routed through internal/netbind so iOS builds can bind the socket to the
+// active physical interface and bypass any third-party VPN.
 func dialUDPResolver(resolverLabel string) (*net.UDPConn, error) {
 	addr, err := net.ResolveUDPAddr("udp", resolverLabel)
 	if err != nil {
 		return nil, err
 	}
-	return net.DialUDP("udp", nil, addr)
+	return netbind.DialUDP("udp", addr)
 }
 
 // normalizeTimeout ensures the timeout is positive, falling back to a default if necessary.

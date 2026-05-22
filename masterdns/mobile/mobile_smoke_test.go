@@ -158,3 +158,15 @@ func TestStopWhenNotRunningIsNoop(t *testing.T) {
 		t.Error("IsRunning must report false after Stop on idle client")
 	}
 }
+
+func TestSetBoundInterfaceRoundtrips(t *testing.T) {
+	SetBoundInterface("")
+	if got := BoundInterface(); got != "" {
+		t.Fatalf("BoundInterface after reset = %q, want empty", got)
+	}
+	SetBoundInterface("en0")
+	if got := BoundInterface(); got != "en0" {
+		t.Errorf("BoundInterface = %q, want en0", got)
+	}
+	SetBoundInterface("")
+}

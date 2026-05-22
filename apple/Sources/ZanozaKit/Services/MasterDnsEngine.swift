@@ -25,11 +25,18 @@ public struct EngineStartOptions {
     public let profile: ConnectionProfile
     public let settings: AppSettings
     public let runtimeDirectory: URL
+    public let boundInterface: String
 
-    public init(profile: ConnectionProfile, settings: AppSettings, runtimeDirectory: URL) {
+    public init(
+        profile: ConnectionProfile,
+        settings: AppSettings,
+        runtimeDirectory: URL,
+        boundInterface: String = ""
+    ) {
         self.profile = profile
         self.settings = settings
         self.runtimeDirectory = runtimeDirectory
+        self.boundInterface = boundInterface
     }
 }
 
@@ -75,6 +82,10 @@ public final class MasterDnsEngine {
         let relay = MobileLogRelay { line in log(line) }
         lock.lock(); logRelay = relay; lock.unlock()
         MobileSetLogWriter(relay)
+
+        // Re-apply the bound interface right before Start so the very first
+        // outbound socket (MTU probe) already bypasses any third-party VPN.
+        MobileSetBoundInterface(options.boundInterface)
 
         var startError: NSError?
         let didStart = MobileStart(configTOML, resolvers, options.runtimeDirectory.path, &startError)
