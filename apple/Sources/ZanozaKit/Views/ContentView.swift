@@ -9,6 +9,7 @@ public struct ContentView: View {
     @StateObject private var viewModel: ClientViewModel
     @State private var isShowingImporter = false
     @State private var isShowingLogs = false
+    @State private var isShowingSettings = false
     @State private var detailDestination: DetailDestination?
 
     @MainActor
@@ -41,6 +42,11 @@ public struct ContentView: View {
                 #if os(iOS)
                 ToolbarItemGroup(placement: .navigationBarLeading) {
                     Button {
+                        isShowingSettings = true
+                    } label: {
+                        Label(AppLocalization.string("Settings"), systemImage: "gearshape")
+                    }
+                    Button {
                         isShowingLogs = true
                     } label: {
                         Label(AppLocalization.string("Logs"), systemImage: "list.bullet.rectangle")
@@ -55,6 +61,11 @@ public struct ContentView: View {
                 }
                 #else
                 ToolbarItemGroup(placement: .navigation) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Label(AppLocalization.string("Settings"), systemImage: "gearshape")
+                    }
                     Button {
                         isShowingLogs = true
                     } label: {
@@ -76,6 +87,30 @@ public struct ContentView: View {
                 viewModel.importProfile(domain: domain, encryptionKey: key, name: name)
                 isShowingImporter = false
             }
+        }
+        .sheet(isPresented: $isShowingSettings) {
+            NavigationStack {
+                SettingsView(
+                    settings: $viewModel.settings,
+                    isTunnelRunning: viewModel.status.isRunning,
+                    onCommit: viewModel.saveSettings
+                )
+                .navigationTitle(AppLocalization.string("Settings"))
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(AppLocalization.string("Done")) {
+                            viewModel.saveSettings()
+                            isShowingSettings = false
+                        }
+                    }
+                }
+            }
+            #if os(macOS)
+            .frame(width: 480, height: 520)
+            #endif
         }
         .sheet(item: $detailDestination) { destination in
             detailView(for: destination)
@@ -168,7 +203,10 @@ private struct ProfilesHomeView: View {
                     ProfileRow(
                         profile: profile,
                         isSelected: viewModel.selectedProfileID == profile.id,
+                        isPinging: viewModel.pingingProfileIDs.contains(profile.id),
+                        pingState: viewModel.pingResults[profile.id],
                         onSelect: { viewModel.selectProfile(profile.id) },
+                        onPing: { viewModel.pingProfile(profile.id) },
                         onInfo: { onShowProfileDetails(profile) }
                     )
                     .swipeActions {
@@ -209,7 +247,9 @@ private struct ConnectionPanel: View {
                             .minimumScaleFactor(0.72)
                     }
                     if let port = viewModel.activeSocksPort, viewModel.status == .ready {
-                        Text(AppLocalization.format("SOCKS5 127.0.0.1:%d", port))
+                        // Direct String interpolation avoids the Russian
+                        // locale's NBSP thousand grouping that `%d` produces.
+                        Text("SOCKS5 127.0.0.1:\(String(port))")
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.green)
                     }
@@ -262,7 +302,10 @@ private struct ConnectionPanel: View {
 private struct ProfileRow: View {
     let profile: ConnectionProfile
     let isSelected: Bool
+    let isPinging: Bool
+    let pingState: ProfilePingResult?
     let onSelect: () -> Void
+    let onPing: () -> Void
     let onInfo: () -> Void
 
     var body: some View {
@@ -289,15 +332,96 @@ private struct ProfileRow: View {
             }
             .buttonStyle(.plain)
 
-            Button(action: onInfo) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
+            HStack(spacing: 4) {
+                PingStateLabel(state: pingState, isPinging: isPinging)
+                PingButton(isPinging: isPinging, action: onPing)
+                InfoButton(action: onInfo)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct PingButton: View {
+    let isPinging: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "speedometer")
+                .font(.system(size: 17, weight: .medium))
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .opacity(isPinging ? 0.45 : 1)
+        .disabled(isPinging)
+        .accessibilityLabel(AppLocalization.string("Ping profile"))
+    }
+}
+
+private struct InfoButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 18, weight: .medium))
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .accessibilityLabel(AppLocalization.string("Details"))
+    }
+}
+
+private struct PingStateLabel: View {
+    let state: ProfilePingResult?
+    let isPinging: Bool
+
+    var body: some View {
+        Group {
+            if isPinging {
+                ProgressView().controlSize(.small)
+            } else if let state {
+                switch state {
+                case .success(let ms):
+                    Text("\(String(ms)) \(AppLocalization.string("ms"))")
+                        .foregroundStyle(color(for: ms))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .help(AppLocalization.string("Last ping (ms)."))
+                case .failure(let message):
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(.red)
+                        .help(message)
+                }
+            } else {
+                Color.clear
+            }
+        }
+        .font(.caption.weight(.semibold))
+        .frame(width: width, height: 30, alignment: alignment)
+    }
+
+    private var width: CGFloat {
+        if isPinging { return 30 }
+        switch state {
+        case .success: return 60
+        case .failure: return 30
+        case .none: return 30
+        }
+    }
+
+    private var alignment: Alignment {
+        width == 30 ? .center : .trailing
+    }
+
+    private func color(for ms: Int) -> Color {
+        if ms < 150 { return .green }
+        if ms < 350 { return .orange }
+        return .red
     }
 }
 

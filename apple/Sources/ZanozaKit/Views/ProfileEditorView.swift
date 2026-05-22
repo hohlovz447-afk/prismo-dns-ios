@@ -44,19 +44,6 @@ public struct ProfileEditorView: View {
                 }
             }
 
-            Section(AppLocalization.string("Local SOCKS5")) {
-                StepperPortRow(value: $profile.socksPort)
-                Toggle(AppLocalization.string("Require username/password"), isOn: $profile.socksAuthEnabled)
-                if profile.socksAuthEnabled {
-                    TextField(AppLocalization.string("Username"), text: $profile.socksUser)
-                        .zanozaPlainInput()
-                        .onSubmit(onCommit)
-                    SecureField(AppLocalization.string("Password"), text: $profile.socksPass)
-                        .zanozaPlainInput()
-                        .onSubmit(onCommit)
-                }
-            }
-
             Section(AppLocalization.string("Reliability")) {
                 Picker(AppLocalization.string("Resolver strategy"), selection: $profile.resolverBalancingStrategy) {
                     ForEach(BalancingStrategy.allCases) { strategy in
@@ -64,12 +51,12 @@ public struct ProfileEditorView: View {
                     }
                 }
                 Stepper(
-                    AppLocalization.format("Packet duplication: %d", profile.packetDuplicationCount),
+                    "\(AppLocalization.string("Packet duplication")): \(profile.packetDuplicationCount)",
                     value: $profile.packetDuplicationCount,
                     in: 1...10
                 )
                 Stepper(
-                    AppLocalization.format("Setup duplication: %d", profile.setupPacketDuplicationCount),
+                    "\(AppLocalization.string("Setup duplication")): \(profile.setupPacketDuplicationCount)",
                     value: $profile.setupPacketDuplicationCount,
                     in: profile.packetDuplicationCount...12
                 )
@@ -95,93 +82,9 @@ public struct ProfileEditorView: View {
                     }
                 }
             }
-
-            Section(AppLocalization.string("Resolvers (optional)")) {
-                ResolversTextEditor(text: $profile.customResolvers)
-                Text(AppLocalization.string("Leave empty to use the bundled list of public resolvers."))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
         .onDisappear(perform: onCommit)
-    }
-}
-
-private struct StepperPortRow: View {
-    @Binding var value: Int
-    @FocusState private var isFocused: Bool
-    @State private var text: String = ""
-
-    var body: some View {
-        HStack {
-            Text(AppLocalization.string("SOCKS port"))
-            Spacer(minLength: 12)
-            TextField("", text: textBinding)
-                .multilineTextAlignment(.trailing)
-                .focused($isFocused)
-                .frame(width: 92)
-                #if os(iOS)
-                .keyboardType(.numberPad)
-                .textFieldStyle(.plain)
-                #else
-                .textFieldStyle(.plain)
-                #endif
-            Stepper("", value: clampedValue, in: ConnectionProfile.socksPortRange)
-                .labelsHidden()
-                .fixedSize()
-        }
-        .onAppear { text = "\(value)" }
-        .onChange(of: value) { newValue in
-            if !isFocused { text = "\(newValue)" }
-        }
-        .onChange(of: isFocused) { focused in
-            if !focused { commit() }
-        }
-    }
-
-    private var textBinding: Binding<String> {
-        Binding(
-            get: { text.isEmpty && !isFocused ? "\(value)" : text },
-            set: { text = $0.filter(\.isNumber) }
-        )
-    }
-
-    private var clampedValue: Binding<Int> {
-        Binding(
-            get: { value },
-            set: { newValue in
-                let clamped = ConnectionProfile.clampedSocksPort(newValue)
-                value = clamped
-                text = "\(clamped)"
-            }
-        )
-    }
-
-    private func commit() {
-        let digits = text.filter(\.isNumber)
-        if let parsed = Int(digits) {
-            value = ConnectionProfile.clampedSocksPort(parsed)
-        }
-        text = "\(value)"
-    }
-}
-
-private struct ResolversTextEditor: View {
-    @Binding var text: String
-
-    var body: some View {
-        #if os(iOS)
-        TextEditor(text: $text)
-            .font(.system(.footnote, design: .monospaced))
-            .frame(minHeight: 120)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-        #else
-        TextEditor(text: $text)
-            .font(.system(.footnote, design: .monospaced))
-            .frame(minHeight: 120)
-        #endif
     }
 }
 

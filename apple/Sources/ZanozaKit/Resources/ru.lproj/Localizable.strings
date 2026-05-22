@@ -16,8 +16,15 @@
 "Delete" = "Удалить";
 "Dismiss" = "Закрыть";
 "Logs" = "Журнал";
+"Settings" = "Настройки";
 "Copy" = "Копировать";
 "Clear" = "Очистить";
+"Ping profile" = "Пинг профиля";
+"Details" = "Подробности";
+"ms" = "мс";
+"Last ping (ms)." = "Последний пинг (мс).";
+"Timeout." = "Тайм-аут.";
+"No response." = "Нет ответа.";
 
 "No profiles yet" = "Профилей пока нет";
 "Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Нажмите «Импортировать», чтобы добавить сервер Zanoza по делегированному домену и ключу шифрования.";
@@ -38,15 +45,16 @@
 "Password" = "Пароль";
 "Reliability" = "Надёжность";
 "Resolver strategy" = "Стратегия резолверов";
-"Packet duplication: %d" = "Дублирование пакетов: %d";
-"Setup duplication: %d" = "Дублирование SYN-пакетов: %d";
+"Packet duplication" = "Дублирование пакетов";
+"Setup duplication" = "Дублирование SYN-пакетов";
 "Compression" = "Сжатие";
 "Upload" = "Загрузка";
 "Download" = "Скачивание";
 "Logging" = "Журналирование";
 "Log level" = "Уровень журнала";
-"Resolvers (optional)" = "Резолверы (опционально)";
-"Leave empty to use the bundled list of public resolvers." = "Оставьте пустым, чтобы использовать встроенный список публичных резолверов.";
+"Resolvers" = "Резолверы";
+"One resolver per line. Used by every profile; overrides the bundled list. Leave empty to fall back to the bundled public resolvers." = "Один резолвер в строке. Применяется ко всем профилям и перезаписывает встроенный список. Оставьте пустым, чтобы использовать встроенный список публичных резолверов.";
+"Changes apply after reconnecting." = "Изменения применятся после переподключения.";
 
 "Import profile" = "Импорт профиля";
 "Delegated domain" = "Делегированный домен";
@@ -60,6 +68,6 @@
 "Encryption key is required." = "Требуется ключ шифрования.";
 "SOCKS port must be between 1024 and 65535." = "Порт SOCKS должен быть в диапазоне 1024–65535.";
 "MasterDns Mobile.xcframework not embedded in the build." = "Mobile.xcframework MasterDns не встроен в сборку.";
+"Failed to start MasterDnsVPN client." = "Не удалось запустить клиент MasterDnsVPN.";
 
-"SOCKS5 127.0.0.1:%d" = "SOCKS5 127.0.0.1:%d";
 "No log lines yet." = "Записей пока нет.";

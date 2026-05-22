@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Generate the Zanoza iOS AppIcon set.
 
-Renders a 1024x1024 master icon with:
-  - warm orange radial-ish gradient background
-  - large semi-transparent white hot-air balloon silhouette
-  - simplified world-map dot pattern etched on top of the balloon (clipped)
-  - a tiny basket below the balloon for character
+Master 1024×1024 icon:
+  - vertical orange gradient background (top lighter, bottom slightly deeper)
+  - one white, tapered, gently curved brush stroke across the middle
+  - subtle drop shadow under the stroke for a 3D "lift" effect
+  - light brush-edge speckle so the stroke does not read as a solid blob
 
-Then downsizes to every iOS AppIcon slot found in
+Renders into every iOS AppIcon slot declared in
 Sources/ZanozaApp/Assets.xcassets/AppIcon.appiconset/Contents.json.
 """
 
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import math
+import random
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -25,185 +26,125 @@ MASTER = 1024
 
 
 def make_gradient_background(size: int) -> Image.Image:
-    """Warm orange radial gradient (top-left light, bottom-right deep)."""
-    top = (255, 180, 90)
-    bottom = (228, 92, 30)
+    """Vertical orange gradient with a touch of horizontal warmth."""
+    top = (255, 152, 60)
+    bottom = (234, 96, 25)
     img = Image.new("RGB", (size, size), bottom)
-    pixels = img.load()
-    diag = math.hypot(size, size)
-    cx, cy = size * 0.32, size * 0.22
+    px = img.load()
     for y in range(size):
+        t = y / (size - 1)
+        r = int(top[0] * (1 - t) + bottom[0] * t)
+        g = int(top[1] * (1 - t) + bottom[1] * t)
+        b = int(top[2] * (1 - t) + bottom[2] * t)
         for x in range(size):
-            d = math.hypot(x - cx, y - cy) / diag
-            t = max(0.0, min(1.0, d * 1.35))
-            r = int(top[0] * (1 - t) + bottom[0] * t)
-            g = int(top[1] * (1 - t) + bottom[1] * t)
-            b = int(top[2] * (1 - t) + bottom[2] * t)
-            pixels[x, y] = (r, g, b)
+            # Mild radial highlight near upper-left, very subtle.
+            hx = (x - size * 0.25) / size
+            hy = (y - size * 0.20) / size
+            d2 = hx * hx + hy * hy
+            warmth = max(0.0, 0.10 - d2 * 0.6)
+            px[x, y] = (
+                min(255, r + int(warmth * 35)),
+                min(255, g + int(warmth * 25)),
+                min(255, b + int(warmth * 15)),
+            )
     return img
 
 
-# Tiny equirectangular landmass mask (1 = land, 0 = water).
-# Each row is a string; '.' = water, '#' = land. 24x12 cells covers globally
-# recognisable shapes when rendered as dots.
-WORLD_MAP = [
-    "........................",
-    "......#####.#####.......",
-    "....#######.##########..",
-    "...##############.####..",
-    "....#####...#######.....",
-    ".....##......######.....",
-    ".......#.....#####......",
-    ".......#......####......",
-    "........#.....###..#....",
-    "........#......##.#.....",
-    ".........#......##......",
-    "..........#....##.......",
-]
+def quadratic_bezier(p0, p1, p2, t):
+    inv = 1.0 - t
+    x = inv * inv * p0[0] + 2 * inv * t * p1[0] + t * t * p2[0]
+    y = inv * inv * p0[1] + 2 * inv * t * p1[1] + t * t * p2[1]
+    return x, y
 
 
-def make_balloon_layer(size: int) -> Image.Image:
-    """Balloon silhouette (semi-transparent white) with map dots and basket."""
-    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+def make_brushstroke(size: int) -> Image.Image:
+    """Tapered white brush stroke on a transparent canvas, same size as bg."""
+    # Use a high-resolution work canvas, then downsample for smooth edges.
+    scale = 2
+    W = size * scale
+    layer = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer, "RGBA")
 
-    cx = size / 2
-    cy = size * 0.46
-    balloon_r = size * 0.32
+    # Bezier control points (relative to canvas, scaled up).
+    p0 = (W * 0.22, W * 0.62)   # start: pointed tip, lower-left
+    p1 = (W * 0.52, W * 0.32)   # control: arcs upward
+    p2 = (W * 0.82, W * 0.58)   # end: pointed tip, lower-right
 
-    # Balloon body is translucent white (~70 % alpha). Map dots are nearly
-    # opaque white so they read as "etched" against the softer balloon.
-    body_alpha = 180
-    body = (255, 255, 255, body_alpha)
+    peak_width = W * 0.085      # widest part of the stroke
 
-    # Balloon body (slightly squashed sphere).
-    draw.ellipse(
-        (
-            cx - balloon_r,
-            cy - balloon_r * 1.05,
-            cx + balloon_r,
-            cy + balloon_r * 0.95,
-        ),
-        fill=body,
-    )
+    samples = 600
+    rng = random.Random(42)
 
-    # Bottom "neck" trapezoid that meets the basket.
-    neck_top_w = balloon_r * 0.55
-    neck_bot_w = balloon_r * 0.30
-    neck_top_y = cy + balloon_r * 0.85
-    neck_bot_y = cy + balloon_r * 1.20
-    draw.polygon(
-        [
-            (cx - neck_top_w, neck_top_y),
-            (cx + neck_top_w, neck_top_y),
-            (cx + neck_bot_w, neck_bot_y),
-            (cx - neck_bot_w, neck_bot_y),
-        ],
-        fill=body,
-    )
+    for i in range(samples):
+        t = i / (samples - 1)
+        x, y = quadratic_bezier(p0, p1, p2, t)
 
-    # Map dots, clipped to the balloon body.
-    balloon_mask = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(balloon_mask).ellipse(
-        (
-            cx - balloon_r,
-            cy - balloon_r * 1.05,
-            cx + balloon_r,
-            cy + balloon_r * 0.95,
-        ),
-        fill=255,
-    )
+        # Width tapers from 0 -> peak -> 0 along the curve, with a slight
+        # asymmetry that mimics a real brush (peak biased toward 45%).
+        bias = t / 0.45 if t < 0.45 else (1.0 - t) / 0.55
+        w = peak_width * max(0.0, math.sin(min(1.0, bias) * math.pi / 2)) ** 1.1
 
-    dots_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    dots_draw = ImageDraw.Draw(dots_layer, "RGBA")
-    rows = len(WORLD_MAP)
-    cols = len(WORLD_MAP[0])
-    pad = balloon_r * 0.10
-    grid_w = (balloon_r - pad) * 2
-    grid_h = grid_w * (rows / cols) * 0.95
-    grid_x0 = cx - grid_w / 2
-    grid_y0 = cy - grid_h / 2
-    dot = max(2, int(size * 0.012))
-    # Brighter, more-opaque white than the balloon body so the map "etches".
-    dot_color = (255, 255, 255, 245)
-    for ry, row in enumerate(WORLD_MAP):
-        for rx, ch in enumerate(row):
-            if ch != "#":
-                continue
-            px = grid_x0 + (rx + 0.5) * (grid_w / cols)
-            py = grid_y0 + (ry + 0.5) * (grid_h / rows)
-            dots_draw.ellipse(
-                (px - dot, py - dot, px + dot, py + dot),
-                fill=dot_color,
-            )
-
-    # Clip dots into the balloon body.
-    dots_layer.putalpha(
-        Image.eval(
-            Image.composite(
-                dots_layer.split()[3],
-                Image.new("L", (size, size), 0),
-                balloon_mask,
-            ),
-            lambda v: v,
+        # Pre-shadow disc (offset below for a soft drop shadow).
+        sd = w * 0.95
+        draw.ellipse(
+            (x - sd + W * 0.012, y - sd + W * 0.018,
+             x + sd + W * 0.012, y + sd + W * 0.018),
+            fill=(20, 10, 0, 70),
         )
-    )
 
-    layer = Image.alpha_composite(layer, dots_layer)
+    # Now stroke body in white on top of the shadow.
+    for i in range(samples):
+        t = i / (samples - 1)
+        x, y = quadratic_bezier(p0, p1, p2, t)
+        bias = t / 0.45 if t < 0.45 else (1.0 - t) / 0.55
+        w = peak_width * max(0.0, math.sin(min(1.0, bias) * math.pi / 2)) ** 1.1
+        # Tiny per-sample jitter for a brush-like edge.
+        jitter = (rng.random() - 0.5) * w * 0.05
+        ww = max(0.0, w + jitter)
+        draw.ellipse((x - ww, y - ww, x + ww, y + ww), fill=(255, 255, 255, 255))
 
-    # Basket: small rounded rectangle suspended below the neck.
-    basket_w = balloon_r * 0.55
-    basket_h = balloon_r * 0.22
-    basket_x0 = cx - basket_w / 2
-    basket_x1 = cx + basket_w / 2
-    basket_y0 = neck_bot_y + balloon_r * 0.10
-    basket_y1 = basket_y0 + basket_h
-    basket = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ImageDraw.Draw(basket).rounded_rectangle(
-        (basket_x0, basket_y0, basket_x1, basket_y1),
-        radius=int(basket_h * 0.30),
-        fill=(255, 255, 255, body_alpha),
-    )
-    layer = Image.alpha_composite(layer, basket)
+    # Soften shadow with blur on the shadow only: we re-extract by isolating
+    # darker non-white pixels. Simpler: blur the whole layer slightly to
+    # round microscopic stair-steps, then composite a sharper white pass
+    # on top of it.
+    soft = layer.filter(ImageFilter.GaussianBlur(radius=W * 0.0035))
 
-    # Suspension cords from balloon to basket corners.
-    cord_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    cord_draw = ImageDraw.Draw(cord_layer, "RGBA")
-    cord = (255, 255, 255, body_alpha)
-    cord_w = max(2, int(size * 0.006))
-    cord_draw.line(
-        [(cx - neck_bot_w, neck_bot_y), (basket_x0 + basket_w * 0.10, basket_y0)],
-        fill=cord, width=cord_w,
-    )
-    cord_draw.line(
-        [(cx + neck_bot_w, neck_bot_y), (basket_x1 - basket_w * 0.10, basket_y0)],
-        fill=cord, width=cord_w,
-    )
-    layer = Image.alpha_composite(layer, cord_layer)
+    # Bristle texture: a few faint streaks running along the stroke.
+    bristles = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(bristles, "RGBA")
+    for streak in range(8):
+        offset = (streak - 3.5) * peak_width * 0.18
+        for i in range(0, samples, 3):
+            t = i / (samples - 1)
+            x, y = quadratic_bezier(p0, p1, p2, t)
+            bias = t / 0.45 if t < 0.45 else (1.0 - t) / 0.55
+            w = peak_width * max(0.0, math.sin(min(1.0, bias) * math.pi / 2)) ** 1.1
+            if w <= 0:
+                continue
+            # Perpendicular offset.
+            if i + 1 < samples:
+                x2, y2 = quadratic_bezier(p0, p1, p2, (i + 1) / (samples - 1))
+                dx, dy = x2 - x, y2 - y
+                nrm = math.hypot(dx, dy) or 1.0
+                nx, ny = -dy / nrm, dx / nrm
+            else:
+                nx, ny = 0, 1
+            cx = x + nx * offset
+            cy = y + ny * offset
+            r = max(0.5, w * 0.05)
+            bd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 255, 255, 110))
 
-    # Subtle inner highlight on the balloon's upper-left to add depth.
-    highlight = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    hi_draw = ImageDraw.Draw(highlight, "RGBA")
-    hi_r = balloon_r * 0.55
-    hi_cx = cx - balloon_r * 0.25
-    hi_cy = cy - balloon_r * 0.35
-    hi_draw.ellipse(
-        (hi_cx - hi_r, hi_cy - hi_r, hi_cx + hi_r, hi_cy + hi_r),
-        fill=(255, 255, 255, 70),
-    )
-    highlight = highlight.filter(ImageFilter.GaussianBlur(size * 0.04))
-    # Clip highlight to balloon body.
-    masked = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    masked.paste(highlight, mask=balloon_mask)
-    layer = Image.alpha_composite(layer, masked)
+    bristles = bristles.filter(ImageFilter.GaussianBlur(radius=W * 0.001))
+    combined = Image.alpha_composite(soft, bristles)
 
-    return layer
+    # Downsample back to target size for crisp edges.
+    return combined.resize((size, size), Image.LANCZOS)
 
 
 def render_master() -> Image.Image:
     bg = make_gradient_background(MASTER).convert("RGBA")
-    balloon = make_balloon_layer(MASTER)
-    return Image.alpha_composite(bg, balloon)
+    stroke = make_brushstroke(MASTER)
+    return Image.alpha_composite(bg, stroke)
 
 
 def render_all():
@@ -212,17 +153,15 @@ def render_all():
         manifest = json.load(f)
 
     master = render_master()
-    # Pre-rasterize once at maximum quality.
     for image in manifest["images"]:
         filename = image.get("filename")
         if not filename:
             continue
-        size_str = image["size"]  # e.g. "60x60" or "83.5x83.5"
+        size_str = image["size"]
         scale = int(image["scale"].rstrip("x"))
         side = float(size_str.split("x")[0])
         pixel_side = int(round(side * scale))
         resized = master.resize((pixel_side, pixel_side), Image.LANCZOS)
-        # iOS marketing icon must be RGB (no alpha). All others can be RGB too.
         out = resized.convert("RGB")
         out_path = APPICON_DIR / filename
         out.save(out_path, format="PNG", optimize=True)

@@ -1,13 +1,14 @@
 import Foundation
 
 // Builds the TOML configuration text consumed by the embedded MasterDnsVPN
-// Go client out of a ConnectionProfile.
+// Go client. SOCKS listener and resolver list come from the app-wide
+// AppSettings; profile contributes domain, key, encryption and routing knobs.
 public enum ConfigBuilder {
-    public static func buildTOML(for profile: ConnectionProfile) -> String {
+    public static func buildTOML(for profile: ConnectionProfile, settings: AppSettings) -> String {
         let domain = escape(profile.domain)
         let key = escape(profile.encryptionKey)
-        let user = escape(profile.socksUser)
-        let pass = escape(profile.socksPass)
+        let user = escape(settings.socksUser)
+        let pass = escape(settings.socksPass)
 
         return """
         # Zanoza generated client_config.toml — do not edit manually.
@@ -17,9 +18,9 @@ public enum ConfigBuilder {
 
         PROTOCOL_TYPE = "SOCKS5"
         LISTEN_IP = "127.0.0.1"
-        LISTEN_PORT = \(profile.socksPort)
+        LISTEN_PORT = \(settings.socksPort)
 
-        SOCKS5_AUTH = \(profile.socksAuthEnabled ? "true" : "false")
+        SOCKS5_AUTH = \(settings.socksAuthEnabled ? "true" : "false")
         SOCKS5_USER = "\(user)"
         SOCKS5_PASS = "\(pass)"
 
@@ -102,8 +103,8 @@ public enum ConfigBuilder {
         """
     }
 
-    public static func resolversText(for profile: ConnectionProfile) -> String {
-        let custom = profile.customResolvers.trimmingCharacters(in: .whitespacesAndNewlines)
+    public static func resolversText(settings: AppSettings) -> String {
+        let custom = settings.customResolvers.trimmingCharacters(in: .whitespacesAndNewlines)
         if !custom.isEmpty { return custom }
         return DefaultResolvers.text
     }

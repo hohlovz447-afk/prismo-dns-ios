@@ -7,23 +7,30 @@ public final class ClientViewModel: ObservableObject {
     @Published public private(set) var profiles: [ConnectionProfile] = []
     @Published public var selectedProfileID: UUID?
     @Published public var draft: ConnectionProfile = .empty
+    @Published public var settings: AppSettings
     @Published public private(set) var status: ClientStatus = .stopped
     @Published public private(set) var logs: [String] = []
     @Published public private(set) var isImporting = false
     @Published public var importErrorMessage: String?
     @Published public private(set) var activeSocksPort: Int?
+    @Published public private(set) var pingingProfileIDs: Set<UUID> = []
+    @Published public private(set) var pingResults: [UUID: ProfilePingResult] = [:]
 
     private let engine = MasterDnsEngine()
     #if os(iOS)
     private let backgroundRuntimeKeeper = BackgroundRuntimeKeeper()
     #endif
-    private let store = ProfileStore.shared
+    private let profileStore = ProfileStore.shared
+    private let settingsStore = AppSettingsStore.shared
+    private let pinger = ProfilePinger()
     private var cancellables = Set<AnyCancellable>()
     private var startTask: Task<Void, Never>?
     private var stopTask: Task<Void, Never>?
+    private var pingTasks: [UUID: Task<Void, Never>] = [:]
 
     public init() {
-        profiles = store.load()
+        settings = AppSettingsStore.shared.load()
+        profiles = profileStore.load()
         selectedProfileID = profiles.first?.id
         if let selected = profiles.first { draft = selected }
 
@@ -55,7 +62,7 @@ public final class ClientViewModel: ObservableObject {
         if profile.encryptionKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return AppLocalization.string("Encryption key is required.")
         }
-        if !ConnectionProfile.socksPortRange.contains(profile.socksPort) {
+        if !AppSettings.socksPortRange.contains(settings.socksPort) {
             return AppLocalization.string("SOCKS port must be between 1024 and 65535.")
         }
         return nil
@@ -107,22 +114,48 @@ public final class ClientViewModel: ObservableObject {
     public func saveDraft() {
         guard let index = profiles.firstIndex(where: { $0.id == draft.id }) else { return }
         var sanitized = draft
-        sanitized.socksPort = ConnectionProfile.clampedSocksPort(sanitized.socksPort)
         sanitized.setupPacketDuplicationCount = max(sanitized.packetDuplicationCount, min(12, sanitized.setupPacketDuplicationCount))
         profiles[index] = sanitized
         draft = sanitized
         persistProfiles()
     }
 
+    public func saveSettings() {
+        settings.socksPort = AppSettings.clampedSocksPort(settings.socksPort)
+        settingsStore.save(settings)
+    }
+
     public func deleteProfiles(ids: [UUID]) {
         let set = Set(ids)
         profiles.removeAll { set.contains($0.id) }
+        for id in ids {
+            pingingProfileIDs.remove(id)
+            pingResults.removeValue(forKey: id)
+            pingTasks[id]?.cancel()
+            pingTasks.removeValue(forKey: id)
+        }
         if let current = selectedProfileID, set.contains(current) {
             selectedProfileID = profiles.first?.id
             if let next = profiles.first { draft = next } else { draft = .empty }
             if status.isRunning { stop() }
         }
         persistProfiles()
+    }
+
+    public func pingProfile(_ id: UUID) {
+        guard !pingingProfileIDs.contains(id),
+              let profile = profiles.first(where: { $0.id == id }) else { return }
+        pingingProfileIDs.insert(id)
+        pingTasks[id]?.cancel()
+        pingTasks[id] = Task { [weak self, pinger] in
+            let result = await pinger.ping(profile)
+            await MainActor.run {
+                guard let self else { return }
+                self.pingingProfileIDs.remove(id)
+                self.pingResults[id] = result
+                self.pingTasks.removeValue(forKey: id)
+            }
+        }
     }
 
     public func start() {
@@ -133,6 +166,7 @@ public final class ClientViewModel: ObservableObject {
             AppLogger.shared.append("Cannot start: \(message)")
             return
         }
+        let settingsSnapshot = settings
         status = .starting
         AppLogger.shared.append("Starting Zanoza tunnel for \(profile.domain)...")
 
@@ -142,13 +176,15 @@ public final class ClientViewModel: ObservableObject {
             let runtimeDir = self.runtimeDirectory(for: profile)
             do {
                 #if os(iOS)
-                try await MainActor.run {
-                    try self.backgroundRuntimeKeeper.start()
-                }
+                try self.backgroundRuntimeKeeper.start()
                 #endif
                 try await Task.detached(priority: .userInitiated) { [engine = self.engine] in
                     try engine.start(
-                        EngineStartOptions(profile: profile, runtimeDirectory: runtimeDir),
+                        EngineStartOptions(
+                            profile: profile,
+                            settings: settingsSnapshot,
+                            runtimeDirectory: runtimeDir
+                        ),
                         log: { line in
                             Task { @MainActor in AppLogger.shared.append(line) }
                         }
@@ -157,8 +193,8 @@ public final class ClientViewModel: ObservableObject {
 
                 await MainActor.run {
                     self.status = .ready
-                    self.activeSocksPort = profile.socksPort
-                    AppLogger.shared.append("Tunnel ready. SOCKS5 proxy at 127.0.0.1:\(profile.socksPort).")
+                    self.activeSocksPort = settingsSnapshot.socksPort
+                    AppLogger.shared.append("Tunnel ready. SOCKS5 proxy at 127.0.0.1:\(settingsSnapshot.socksPort).")
                 }
             } catch {
                 await MainActor.run {
@@ -208,7 +244,7 @@ public final class ClientViewModel: ObservableObject {
     }
 
     private func persistProfiles() {
-        store.save(profiles)
+        profileStore.save(profiles)
     }
 
     private func runtimeDirectory(for profile: ConnectionProfile) -> URL {

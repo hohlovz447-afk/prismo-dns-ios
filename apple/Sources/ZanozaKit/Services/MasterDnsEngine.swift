@@ -23,19 +23,16 @@ public enum MasterDnsEngineError: LocalizedError {
 
 public struct EngineStartOptions {
     public let profile: ConnectionProfile
+    public let settings: AppSettings
     public let runtimeDirectory: URL
 
-    public init(profile: ConnectionProfile, runtimeDirectory: URL) {
+    public init(profile: ConnectionProfile, settings: AppSettings, runtimeDirectory: URL) {
         self.profile = profile
+        self.settings = settings
         self.runtimeDirectory = runtimeDirectory
     }
 }
 
-// Wraps the gomobile-built Mobile.xcframework. The Mobile package exposes:
-//   MobileStart(configTOML, resolversText, runtimeDir) error
-//   MobileStop()
-//   MobileIsRunning() bool
-//   MobileSetLogWriter(MobileLogWriterProtocol?)
 public final class MasterDnsEngine {
     private let lock = NSLock()
     private var currentSocksPort: Int?
@@ -66,10 +63,10 @@ public final class MasterDnsEngine {
     }
 
     public func start(_ options: EngineStartOptions, log: @escaping (String) -> Void) throws {
-        try validate(options.profile)
+        try validate(options.profile, settings: options.settings)
 
-        let configTOML = ConfigBuilder.buildTOML(for: options.profile)
-        let resolvers = ConfigBuilder.resolversText(for: options.profile)
+        let configTOML = ConfigBuilder.buildTOML(for: options.profile, settings: options.settings)
+        let resolvers = ConfigBuilder.resolversText(settings: options.settings)
 
         let fm = FileManager.default
         try fm.createDirectory(at: options.runtimeDirectory, withIntermediateDirectories: true)
@@ -89,7 +86,7 @@ public final class MasterDnsEngine {
                 ?? AppLocalization.string("Failed to start MasterDnsVPN client.")
             throw MasterDnsEngineError.startFailed(message)
         }
-        lock.lock(); currentSocksPort = options.profile.socksPort; lock.unlock()
+        lock.lock(); currentSocksPort = options.settings.socksPort; lock.unlock()
         #else
         _ = configTOML
         _ = resolvers
@@ -111,7 +108,7 @@ public final class MasterDnsEngine {
         lock.unlock()
     }
 
-    private func validate(_ profile: ConnectionProfile) throws {
+    private func validate(_ profile: ConnectionProfile, settings: AppSettings) throws {
         let trimmedDomain = profile.domain.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedDomain.isEmpty else {
             throw MasterDnsEngineError.invalidProfile(AppLocalization.string("Domain is required."))
@@ -122,7 +119,7 @@ public final class MasterDnsEngine {
         guard !profile.encryptionKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw MasterDnsEngineError.invalidProfile(AppLocalization.string("Encryption key is required."))
         }
-        guard ConnectionProfile.socksPortRange.contains(profile.socksPort) else {
+        guard AppSettings.socksPortRange.contains(settings.socksPort) else {
             throw MasterDnsEngineError.invalidProfile(AppLocalization.string("SOCKS port must be between 1024 and 65535."))
         }
     }

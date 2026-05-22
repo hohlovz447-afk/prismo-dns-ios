@@ -77,27 +77,17 @@ public enum LogLevel: String, CaseIterable, Codable, Identifiable {
 }
 
 public struct ConnectionProfile: Codable, Equatable, Identifiable {
-    public static let defaultSocksPort = 41080
-    public static let minimumSocksPort = 1024
-    public static let maximumSocksPort = 65535
-    public static var socksPortRange: ClosedRange<Int> { minimumSocksPort...maximumSocksPort }
-
     public var id: UUID
     public var name: String
     public var domain: String
     public var encryptionKey: String
     public var encryptionMethod: EncryptionMethod
-    public var socksPort: Int
-    public var socksUser: String
-    public var socksPass: String
-    public var socksAuthEnabled: Bool
     public var uploadCompression: CompressionType
     public var downloadCompression: CompressionType
     public var packetDuplicationCount: Int
     public var setupPacketDuplicationCount: Int
     public var resolverBalancingStrategy: BalancingStrategy
     public var logLevel: LogLevel
-    public var customResolvers: String
 
     public init(
         id: UUID = UUID(),
@@ -105,34 +95,46 @@ public struct ConnectionProfile: Codable, Equatable, Identifiable {
         domain: String = "",
         encryptionKey: String = "",
         encryptionMethod: EncryptionMethod = .xor,
-        socksPort: Int = Self.defaultSocksPort,
-        socksUser: String = "zanoza",
-        socksPass: String = "zanoza",
-        socksAuthEnabled: Bool = false,
         uploadCompression: CompressionType = .off,
         downloadCompression: CompressionType = .off,
         packetDuplicationCount: Int = 3,
         setupPacketDuplicationCount: Int = 4,
         resolverBalancingStrategy: BalancingStrategy = .leastLoss,
-        logLevel: LogLevel = .info,
-        customResolvers: String = ""
+        logLevel: LogLevel = .info
     ) {
         self.id = id
         self.name = name
         self.domain = domain
         self.encryptionKey = encryptionKey
         self.encryptionMethod = encryptionMethod
-        self.socksPort = Self.normalizedSocksPort(socksPort)
-        self.socksUser = socksUser
-        self.socksPass = socksPass
-        self.socksAuthEnabled = socksAuthEnabled
         self.uploadCompression = uploadCompression
         self.downloadCompression = downloadCompression
         self.packetDuplicationCount = max(1, min(10, packetDuplicationCount))
         self.setupPacketDuplicationCount = max(packetDuplicationCount, min(12, setupPacketDuplicationCount))
         self.resolverBalancingStrategy = resolverBalancingStrategy
         self.logLevel = logLevel
-        self.customResolvers = customResolvers
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, domain, encryptionKey, encryptionMethod
+        case uploadCompression, downloadCompression
+        case packetDuplicationCount, setupPacketDuplicationCount
+        case resolverBalancingStrategy, logLevel
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        domain = try c.decodeIfPresent(String.self, forKey: .domain) ?? ""
+        encryptionKey = try c.decodeIfPresent(String.self, forKey: .encryptionKey) ?? ""
+        encryptionMethod = try c.decodeIfPresent(EncryptionMethod.self, forKey: .encryptionMethod) ?? .xor
+        uploadCompression = try c.decodeIfPresent(CompressionType.self, forKey: .uploadCompression) ?? .off
+        downloadCompression = try c.decodeIfPresent(CompressionType.self, forKey: .downloadCompression) ?? .off
+        packetDuplicationCount = try c.decodeIfPresent(Int.self, forKey: .packetDuplicationCount) ?? 3
+        setupPacketDuplicationCount = try c.decodeIfPresent(Int.self, forKey: .setupPacketDuplicationCount) ?? 4
+        resolverBalancingStrategy = try c.decodeIfPresent(BalancingStrategy.self, forKey: .resolverBalancingStrategy) ?? .leastLoss
+        logLevel = try c.decodeIfPresent(LogLevel.self, forKey: .logLevel) ?? .info
     }
 
     public static var empty: ConnectionProfile {
@@ -149,16 +151,7 @@ public struct ConnectionProfile: Codable, Equatable, Identifiable {
     public var listDetail: String {
         var parts: [String] = []
         if !domain.isEmpty { parts.append(domain) }
-        parts.append("SOCKS \(socksPort)")
         parts.append(encryptionMethod.title)
         return parts.joined(separator: " · ")
-    }
-
-    public static func normalizedSocksPort(_ port: Int) -> Int {
-        socksPortRange.contains(port) ? port : defaultSocksPort
-    }
-
-    public static func clampedSocksPort(_ port: Int) -> Int {
-        min(max(port, minimumSocksPort), maximumSocksPort)
     }
 }

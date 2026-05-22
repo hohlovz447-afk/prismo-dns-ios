@@ -16,8 +16,15 @@
 "Delete" = "Delete";
 "Dismiss" = "Dismiss";
 "Logs" = "Logs";
+"Settings" = "Settings";
 "Copy" = "Copy";
 "Clear" = "Clear";
+"Ping profile" = "Ping profile";
+"Details" = "Details";
+"ms" = "ms";
+"Last ping (ms)." = "Last ping (ms).";
+"Timeout." = "Timeout.";
+"No response." = "No response.";
 
 "No profiles yet" = "No profiles yet";
 "Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Tap Import to add a Zanoza server using its delegated domain and encryption key.";
@@ -38,15 +45,16 @@
 "Password" = "Password";
 "Reliability" = "Reliability";
 "Resolver strategy" = "Resolver strategy";
-"Packet duplication: %d" = "Packet duplication: %d";
-"Setup duplication: %d" = "Setup duplication: %d";
+"Packet duplication" = "Packet duplication";
+"Setup duplication" = "Setup duplication";
 "Compression" = "Compression";
 "Upload" = "Upload";
 "Download" = "Download";
 "Logging" = "Logging";
 "Log level" = "Log level";
-"Resolvers (optional)" = "Resolvers (optional)";
-"Leave empty to use the bundled list of public resolvers." = "Leave empty to use the bundled list of public resolvers.";
+"Resolvers" = "Resolvers";
+"One resolver per line. Used by every profile; overrides the bundled list. Leave empty to fall back to the bundled public resolvers." = "One resolver per line. Used by every profile; overrides the bundled list. Leave empty to fall back to the bundled public resolvers.";
+"Changes apply after reconnecting." = "Changes apply after reconnecting.";
 
 "Import profile" = "Import profile";
 "Delegated domain" = "Delegated domain";
@@ -60,6 +68,6 @@
 "Encryption key is required." = "Encryption key is required.";
 "SOCKS port must be between 1024 and 65535." = "SOCKS port must be between 1024 and 65535.";
 "MasterDns Mobile.xcframework not embedded in the build." = "MasterDns Mobile.xcframework not embedded in the build.";
+"Failed to start MasterDnsVPN client." = "Failed to start MasterDnsVPN client.";
 
-"SOCKS5 127.0.0.1:%d" = "SOCKS5 127.0.0.1:%d";
 "No log lines yet." = "No log lines yet.";
