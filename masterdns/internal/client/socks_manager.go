@@ -589,8 +589,15 @@ func (c *Client) handleSocksUDPAssociate(ctx context.Context, conn net.Conn, cli
 		replyATYP = SOCKS5_ATYP_IPV6
 	}
 
+	// Bind the UDP relay to the same address we advertise in BND.ADDR.
+	// Binding to 0.0.0.0 made the kernel report LocalAddr.IP = 0.0.0.0,
+	// which Shadowrocket / Happ refused to use as a SOCKS5 UDP relay target
+	// — they need a routable IP literal and don't fall back to "use the TCP
+	// server's IP" the way RFC 1928 implies. Binding directly to replyIP
+	// (127.0.0.1 in the iOS case) keeps the listener loopback-only and
+	// produces a valid BND.ADDR.
 	bindAddr := &net.UDPAddr{
-		IP:   net.IPv4zero,
+		IP:   replyIP,
 		Port: 0,
 	}
 	udpConn, err := net.ListenUDP("udp", bindAddr)
@@ -601,7 +608,7 @@ func (c *Client) handleSocksUDPAssociate(ctx context.Context, conn net.Conn, cli
 	defer udpConn.Close()
 
 	boundAddr := udpConn.LocalAddr().(*net.UDPAddr)
-	err = c.sendSocksReply(conn, SOCKS5_REPLY_SUCCESS, replyATYP, boundAddr.IP, uint16(boundAddr.Port))
+	err = c.sendSocksReply(conn, SOCKS5_REPLY_SUCCESS, replyATYP, replyIP, uint16(boundAddr.Port))
 	if err != nil {
 		return
 	}
