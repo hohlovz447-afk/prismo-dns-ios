@@ -1,6 +1,6 @@
 # Zanoza
 
-iOS client for [MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN) — a DNS-tunneling VPN for high-censorship networks.
+iOS client for [MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN) — a DNS-tunneling VPN for extreme-censorship networks.
 
 It wraps the upstream MasterDnsVPN Go client into an iOS app, exposes its local SOCKS5 proxy at `127.0.0.1:41080`, and keeps the tunnel running while you switch to another app (Shadowrocket, Happ, etc.) that runs the proxy.
 The app does **not** create an iOS VPN profile, since it is unsigned.
