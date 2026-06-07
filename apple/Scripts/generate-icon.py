@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate the Zanoza iOS AppIcon set.
+"""Generate the Prismo DNS iOS AppIcon set.
 
 Master 1024×1024 icon:
-  - vertical orange gradient background (top lighter, bottom slightly deeper)
+  - vertical blue/indigo gradient background (top lighter, bottom deeper)
   - one white, tapered, gently curved brush stroke across the middle
   - subtle drop shadow under the stroke for a 3D "lift" effect
   - light brush-edge speckle so the stroke does not read as a solid blob
@@ -26,9 +26,9 @@ MASTER = 1024
 
 
 def make_gradient_background(size: int) -> Image.Image:
-    """Vertical orange gradient with a touch of horizontal warmth."""
-    top = (255, 152, 60)
-    bottom = (234, 96, 25)
+    """Vertical blue/indigo gradient with a touch of horizontal warmth."""
+    top = (78, 140, 255)
+    bottom = (37, 64, 178)
     img = Image.new("RGB", (size, size), bottom)
     px = img.load()
     for y in range(size):

@@ -1,4 +1,16 @@
-/* Zanoza English strings */
+/* Prismo DNS English strings */
+
+"Connect with token" = "Connect with token";
+"Add manually" = "Add manually";
+"Prismo token" = "Prismo token";
+"Your Prismo token" = "Your Prismo token";
+"Paste the token from the Prismo VPN bot. The app will fetch the server settings automatically." = "Paste the token from the Prismo VPN bot. The app will fetch the server settings automatically.";
+"Paste your Prismo token to connect automatically, or add a server manually." = "Paste your Prismo token to connect automatically, or add a server manually.";
+"Token is required." = "Token is required.";
+"Invalid Prismo token link." = "Invalid Prismo token link.";
+"This token is not valid." = "This token is not valid.";
+"Your subscription is expired or inactive." = "Your subscription is expired or inactive.";
+"Unexpected response from the Prismo server." = "Unexpected response from the Prismo server.";
 
 "Disconnected" = "Disconnected";
 "Connecting..." = "Connecting...";
@@ -28,7 +40,7 @@
 "No response." = "No response.";
 
 "No profiles yet" = "No profiles yet";
-"Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Tap Import to add a Zanoza server using its delegated domain and encryption key.";
+"Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Tap Import to add a Prismo DNS server using its delegated domain and encryption key.";
 "Profiles" = "Profiles";
 "Untitled" = "Untitled";
 "No profile" = "No profile";
@@ -69,7 +81,7 @@
 "Import profile" = "Import profile";
 "Import from clipboard" = "Import from clipboard";
 "Profile sharing link" = "Profile sharing link";
-"Paste a Zanoza profile sharing link." = "Paste a Zanoza profile sharing link.";
+"Paste a Zanoza profile sharing link." = "Paste a Prismo DNS profile sharing link.";
 "Delegated domain" = "Delegated domain";
 "During installation, you were asked for a domain. It must be the same delegated subdomain you configured in the NS record, for example v.example.com." = "During installation, you were asked for a domain. It must be the same delegated subdomain you configured in the NS record, for example v.example.com.";
 "Shared key" = "Shared key";
@@ -101,11 +113,11 @@
 "Cellular" = "Cellular";
 "Wired" = "Wired";
 "Other" = "Other";
-"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up.";
+"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Prismo DNS after Wi-Fi/cellular is up.";
 "Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN." = "Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN.";
 "Source IPv4" = "Source IPv4";
 "Source IPv6" = "Source IPv6";
 "Third-party VPN" = "Third-party VPN";
 "Active" = "Active";
 "Not detected" = "Not detected";
-"Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it.";
+"Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Another VPN app is active. Prismo DNS pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it.";

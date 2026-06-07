@@ -1,4 +1,4 @@
-name: Zanoza
+name: PrismoDNS
 options:
   minimumXcodeGenVersion: 2.38.0
 settings:
@@ -12,7 +12,7 @@ packages:
   ZanozaApple:
     path: .
 targets:
-  Zanoza:
+  PrismoDNS:
     type: application
     platform: iOS
     deploymentTarget: "16.0"
@@ -21,7 +21,7 @@ targets:
     info:
       path: Sources/ZanozaApp/Info.plist
       properties:
-        CFBundleDisplayName: Zanoza
+        CFBundleDisplayName: Prismo DNS
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
@@ -31,6 +31,11 @@ targets:
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
+        CFBundleURLTypes:
+          - CFBundleURLName: org.prismovpn.dns.deeplink
+            CFBundleURLSchemes:
+              - prismodns
+              - zanoza
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -41,14 +46,14 @@ targets:
         product: ZanozaKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.zanoza.client.ios
-        PRODUCT_NAME: Zanoza
+        PRODUCT_BUNDLE_IDENTIFIER: org.prismovpn.dns.ios
+        PRODUCT_NAME: Prismo DNS
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 schemes:
-  Zanoza:
+  PrismoDNS:
     build:
       targets:
-        Zanoza: all
+        PrismoDNS: all
     run:
       config: Debug
     archive:

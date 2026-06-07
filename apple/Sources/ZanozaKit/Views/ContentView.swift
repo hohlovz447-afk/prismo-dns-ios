@@ -9,6 +9,7 @@ public struct ContentView: View {
     @StateObject private var viewModel: ClientViewModel
     @State private var isShowingImporter = false
     @State private var isShowingLinkImporter = false
+    @State private var isShowingTokenImporter = false
     @State private var isShowingLogs = false
     @State private var isShowingSettings = false
     @State private var detailDestination: DetailDestination?
@@ -27,7 +28,10 @@ public struct ContentView: View {
         NavigationStack {
             Group {
                 if viewModel.profiles.isEmpty {
-                    EmptyProfilesView(onImport: { isShowingImporter = true })
+                    EmptyProfilesView(
+                        onImportToken: { isShowingTokenImporter = true },
+                        onImportManual: { isShowingImporter = true }
+                    )
                 } else {
                     ProfilesHomeView(
                         viewModel: viewModel,
@@ -35,7 +39,7 @@ public struct ContentView: View {
                     )
                 }
             }
-            .navigationTitle("Zanoza")
+            .navigationTitle("Prismo DNS")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -55,14 +59,23 @@ public struct ContentView: View {
                 }
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
-                        isShowingImporter = true
+                        isShowingTokenImporter = true
                     } label: {
-                        Label(AppLocalization.string("Import"), systemImage: "square.and.arrow.down")
+                        Label(AppLocalization.string("Connect with token"), systemImage: "key.fill")
                     }
-                    Button {
-                        isShowingLinkImporter = true
+                    Menu {
+                        Button {
+                            isShowingImporter = true
+                        } label: {
+                            Label(AppLocalization.string("Import"), systemImage: "square.and.arrow.down")
+                        }
+                        Button {
+                            isShowingLinkImporter = true
+                        } label: {
+                            Label(AppLocalization.string("Import from clipboard"), systemImage: "doc.on.clipboard")
+                        }
                     } label: {
-                        Label(AppLocalization.string("Import from clipboard"), systemImage: "doc.on.clipboard")
+                        Label(AppLocalization.string("Add manually"), systemImage: "ellipsis.circle")
                     }
                 }
                 #else
@@ -79,6 +92,11 @@ public struct ContentView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        isShowingTokenImporter = true
+                    } label: {
+                        Label(AppLocalization.string("Connect with token"), systemImage: "key.fill")
+                    }
                     Button {
                         isShowingImporter = true
                     } label: {
@@ -104,6 +122,16 @@ public struct ContentView: View {
                 if viewModel.importSharedProfile(link) { return nil }
                 return viewModel.importErrorMessage ?? AppLocalization.string("Invalid profile sharing link.")
             }
+        }
+        .sheet(isPresented: $isShowingTokenImporter) {
+            ImportPrismoTokenSheet(isImporting: viewModel.isImporting) { tokenOrLink in
+                await viewModel.importFromPrismoToken(tokenOrLink)
+            }
+        }
+        .onOpenURL { url in
+            let scheme = url.scheme?.lowercased()
+            guard scheme == "prismodns" || scheme == "zanoza", url.host == "token" else { return }
+            Task { await viewModel.importFromPrismoToken(url.absoluteString) }
         }
         .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
@@ -454,7 +482,8 @@ private struct PingStateLabel: View {
 }
 
 private struct EmptyProfilesView: View {
-    let onImport: () -> Void
+    let onImportToken: () -> Void
+    let onImportManual: () -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -466,15 +495,20 @@ private struct EmptyProfilesView: View {
                 Text(AppLocalization.string("No profiles yet"))
                     .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
-                Text(AppLocalization.string("Tap Import to add a Zanoza server using its delegated domain and encryption key."))
+                Text(AppLocalization.string("Paste your Prismo token to connect automatically, or add a server manually."))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            Button(action: onImport) {
-                Label(AppLocalization.string("Import"), systemImage: "square.and.arrow.down")
+            Button(action: onImportToken) {
+                Label(AppLocalization.string("Connect with token"), systemImage: "key.fill")
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            Button(action: onImportManual) {
+                Label(AppLocalization.string("Add manually"), systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.bordered)
             .controlSize(.large)
             Spacer(minLength: 32)
         }

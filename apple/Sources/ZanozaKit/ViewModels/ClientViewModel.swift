@@ -147,6 +147,34 @@ public final class ClientViewModel: ObservableObject {
         }
     }
 
+    /// One-tap import: fetches domain + key from the Prismo backend using only
+    /// the user's access token (from the Telegram bot or a `prismodns://token`
+    /// deep link). Returns nil on success, or a user-facing error message.
+    @discardableResult
+    public func importFromPrismoToken(_ tokenOrLink: String) async -> String? {
+        isImporting = true
+        defer { isImporting = false }
+
+        do {
+            let profile = try await PrismoTokenService.fetchProfile(token: tokenOrLink)
+            if let message = validationMessage(for: profile) {
+                importErrorMessage = message
+                return message
+            }
+            profiles.append(profile)
+            selectedProfileID = profile.id
+            draft = profile
+            persistProfiles()
+            importErrorMessage = nil
+            AppLogger.shared.append("Imported Prismo profile \(profile.displayName) (\(profile.domain)).")
+            return nil
+        } catch {
+            let message = error.localizedDescription
+            importErrorMessage = message
+            return message
+        }
+    }
+
     public func clearImportError() {
         importErrorMessage = nil
     }

@@ -3,11 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APPLE_DIR="$ROOT_DIR/apple"
-SCHEME="Zanoza"
+SCHEME="PrismoDNS"
 CONFIGURATION="${CONFIGURATION:-Release}"
 BUILD_DIR="${BUILD_DIR:-$APPLE_DIR/.build/ios-unsigned-local}"
 PAYLOAD_DIR="$BUILD_DIR/Payload"
-IPA_PATH="$BUILD_DIR/Zanoza-unsigned.ipa"
+IPA_PATH="$BUILD_DIR/PrismoDNS-unsigned.ipa"
 
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -47,7 +47,7 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$PAYLOAD_DIR"
 
 xcodebuild \
-  -project "$APPLE_DIR/Zanoza.xcodeproj" \
+  -project "$APPLE_DIR/PrismoDNS.xcodeproj" \
   -scheme "$SCHEME" \
   -configuration "$CONFIGURATION" \
   -sdk iphoneos \

@@ -1,4 +1,16 @@
-/* Zanoza Russian strings */
+/* Prismo DNS Russian strings */
+
+"Connect with token" = "Подключить по токену";
+"Add manually" = "Добавить вручную";
+"Prismo token" = "Токен Prismo";
+"Your Prismo token" = "Ваш токен Prismo";
+"Paste the token from the Prismo VPN bot. The app will fetch the server settings automatically." = "Вставьте токен из бота Prismo VPN. Приложение само получит настройки сервера.";
+"Paste your Prismo token to connect automatically, or add a server manually." = "Вставьте токен Prismo для автоматического подключения или добавьте сервер вручную.";
+"Token is required." = "Требуется токен.";
+"Invalid Prismo token link." = "Неверная ссылка с токеном Prismo.";
+"This token is not valid." = "Этот токен недействителен.";
+"Your subscription is expired or inactive." = "Ваша подписка истекла или неактивна.";
+"Unexpected response from the Prismo server." = "Неожиданный ответ от сервера Prismo.";
 
 "Disconnected" = "Отключено";
 "Connecting..." = "Подключение...";
@@ -28,7 +40,7 @@
 "No response." = "Нет ответа.";
 
 "No profiles yet" = "Профилей пока нет";
-"Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Нажмите «Импортировать», чтобы добавить сервер Zanoza по делегированному домену и ключу шифрования.";
+"Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Нажмите «Импортировать», чтобы добавить сервер Prismo DNS по делегированному домену и ключу шифрования.";
 "Profiles" = "Профили";
 "Untitled" = "Без названия";
 "No profile" = "Профиль не выбран";
@@ -69,7 +81,7 @@
 "Import profile" = "Импорт профиля";
 "Import from clipboard" = "Импорт из буфера";
 "Profile sharing link" = "Ссылка профиля";
-"Paste a Zanoza profile sharing link." = "Вставьте ссылку для импорта профиля Zanoza.";
+"Paste a Zanoza profile sharing link." = "Вставьте ссылку для импорта профиля Prismo DNS.";
 "Delegated domain" = "Делегированный домен";
 "During installation, you were asked for a domain. It must be the same delegated subdomain you configured in the NS record, for example v.example.com." = "При установке у вас запросили домен. Это должен быть тот же делегированный поддомен, который вы указали в NS-записи, например v.example.com.";
 "Shared key" = "Общий ключ";
@@ -101,11 +113,11 @@
 "Cellular" = "Сотовая сеть";
 "Wired" = "Ethernet";
 "Other" = "Прочее";
-"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Исходящий трафик может зацикливаться через другое VPN-приложение. Отключите другие VPN или перезапустите Zanoza после появления Wi-Fi или сотовой сети.";
+"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Исходящий трафик может зацикливаться через другое VPN-приложение. Отключите другие VPN или перезапустите Prismo DNS после появления Wi-Fi или сотовой сети.";
 "Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN." = "Исходящие DNS-запросы привязаны к этому физическому интерфейсу и обходят любые другие активные VPN.";
 "Source IPv4" = "IPv4 источник";
 "Source IPv6" = "IPv6 источник";
 "Third-party VPN" = "Сторонний VPN";
 "Active" = "Активен";
 "Not detected" = "Не обнаружен";
-"Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Активен другой VPN. Zanoza привязывает исходящий DNS и к интерфейсу, и к его IP-адресу, чтобы обойти его. Если туннель всё равно зависает, найдите в другом приложении переключатель «Строгий режим / Lockdown / Include All Networks» и отключите его.";
+"Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Активен другой VPN. Prismo DNS привязывает исходящий DNS и к интерфейсу, и к его IP-адресу, чтобы обойти его. Если туннель всё равно зависает, найдите в другом приложении переключатель «Строгий режим / Lockdown / Include All Networks» и отключите его.";

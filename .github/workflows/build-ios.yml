@@ -1,0 +1,54 @@
+name: Build iOS (unsigned IPA)
+
+on:
+  push:
+    branches: [main, prismo-rebrand]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: masterdns/go.sum
+
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: gomobile init
+        run: gomobile init
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build Mobile.xcframework (gomobile bind)
+        run: ./apple/Scripts/build-xcframework.sh
+
+      - name: Generate Xcode project
+        run: ./apple/Scripts/prepare-xcode.sh
+
+      - name: Build unsigned IPA
+        run: ./apple/Scripts/build-ios-unsigned-local-ipa.sh
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrismoDNS-unsigned-ipa
+          path: apple/.build/ios-unsigned-local/PrismoDNS-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

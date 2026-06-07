@@ -173,6 +173,89 @@ public struct ImportProfileLinkSheet: View {
     }
 }
 
+/// One-tap import: the user pastes only their Prismo access token (or a
+/// `prismodns://token?value=...` link) and the app fetches the domain + key
+/// from the backend automatically.
+public struct ImportPrismoTokenSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var token: String
+    @State private var importError: String?
+
+    let isImporting: Bool
+    let onImport: (_ tokenOrLink: String) async -> String?
+
+    public init(
+        isImporting: Bool,
+        onImport: @escaping (_ tokenOrLink: String) async -> String?
+    ) {
+        _token = State(initialValue: ClipboardService.string ?? "")
+        self.isImporting = isImporting
+        self.onImport = onImport
+    }
+
+    private var trimmedToken: String {
+        token.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var canImport: Bool {
+        !trimmedToken.isEmpty && !isImporting
+    }
+
+    public var body: some View {
+        NavigationStack {
+            Form {
+                if let importError {
+                    Section {
+                        Label(importError, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                Section {
+                    TextField(AppLocalization.string("Your Prismo token"), text: $token)
+                        .zanozaPlainInput()
+                        .onSubmit(importIfReady)
+                } header: {
+                    Text(AppLocalization.string("Prismo token"))
+                } footer: {
+                    Text(AppLocalization.string("Paste the token from the Prismo VPN bot. The app will fetch the server settings automatically."))
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(AppLocalization.string("Connect with token"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(AppLocalization.string("Cancel"), role: .cancel) { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: importIfReady) {
+                        ImportLabel(isImporting: isImporting)
+                    }
+                    .disabled(!canImport)
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(width: 460, height: 260)
+        #endif
+    }
+
+    private func importIfReady() {
+        guard canImport else { return }
+        let value = trimmedToken
+        Task {
+            if let message = await onImport(value) {
+                importError = message
+            } else {
+                dismiss()
+            }
+        }
+    }
+}
+
 private struct ImportLabel: View {
     let isImporting: Bool
 
