@@ -9,7 +9,9 @@ import Foundation
 public enum PrismoTokenService {
     /// Default API host. Can be overridden per-call (e.g. for staging) but the
     /// production bot serves the DNS-tunnel verify endpoint from here.
-    public static let defaultBaseURL = URL(string: "https://vpn.prismovpn.org")!
+    /// Verified: GET https://prismovpn.org/api/dns-tunnel/verify/{token}
+    /// returns the JSON tunnel config (other subdomains do not route it).
+    public static let defaultBaseURL = URL(string: "https://prismovpn.org")!
 
     public enum TokenError: LocalizedError {
         case emptyToken
