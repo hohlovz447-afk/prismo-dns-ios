@@ -45,10 +45,9 @@ DNS-туннели). Ставим через **SideStore** — это безоп
 
 ## Шаг 2. Установить Prismo DNS (.ipa)
 
-1. Скачайте свежий **PrismoDNS-unsigned.ipa**:
-   - на странице релизов нашего репозитория, **или**
-   - из артефактов последней успешной сборки CI (Actions → Build iOS → артефакт
-     `PrismoDNS-unsigned-ipa`).
+1. Скачайте свежий **PrismoDNS-unsigned.ipa** со страницы релизов:
+   https://github.com/hohlovz447-afk/prismo-dns-ios/releases/latest
+   (либо из артефактов сборки CI: Actions → Build iOS → `PrismoDNS-unsigned-ipa`).
 2. Откройте **SideStore → My Apps → «+»** в левом верхнем углу.
 3. Выберите скачанный `PrismoDNS-unsigned.ipa`.
 4. Дождитесь установки. Иконка Prismo DNS появится на экране «Домой».
