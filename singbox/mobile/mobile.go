@@ -13,9 +13,9 @@ import (
 	"sync"
 
 	box "github.com/sagernet/sing-box"
-	"github.com/sagernet/sing-box/common/json"
 	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing/common/json"
 )
 
 var (
