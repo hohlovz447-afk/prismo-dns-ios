@@ -15,7 +15,6 @@ import (
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/option"
-	"github.com/sagernet/sing/common/json"
 )
 
 var (
@@ -41,14 +40,16 @@ func Start(configJSON string, _ LogWriter) error {
 		stopLocked()
 	}
 
-	// include.Context injects all protocol registries (inbound/outbound/etc.)
-	// so both config parsing and box.New are registry-aware. This single-arg
-	// helper is stable across sing-box versions, unlike box.Context.
+	// box.Context injects the protocol registries (inbound/outbound/endpoint)
+	// so both config parsing and box.New are registry-aware. (v1.11.x takes
+	// three registries; include.Context only exists in newer releases.)
 	ctx, c := context.WithCancel(context.Background())
-	ctx = include.Context(ctx)
+	ctx = box.Context(ctx, include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry())
 
-	opts, err := json.UnmarshalExtendedContext[option.Options](ctx, []byte(configJSON))
-	if err != nil {
+	// option.Options exposes a context-aware unmarshal that wires up the
+	// registries injected above; this is stable across sing-box versions.
+	var opts option.Options
+	if err := opts.UnmarshalJSONContext(ctx, []byte(configJSON)); err != nil {
 		c()
 		return err
 	}
