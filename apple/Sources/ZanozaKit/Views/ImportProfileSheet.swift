@@ -37,7 +37,7 @@ public struct ImportProfileSheet: View {
             Form {
                 Section {
                     TextField("v.example.com", text: $domain)
-                        .zanozaPlainInput()
+                        .prismoPlainInput()
                         .onSubmit(importIfReady)
                 } header: {
                     Text(AppLocalization.string("Delegated domain"))
@@ -47,17 +47,17 @@ public struct ImportProfileSheet: View {
 
                 Section {
                     SecureField(AppLocalization.string("Encryption key"), text: $encryptionKey)
-                        .zanozaPlainInput()
+                        .prismoPlainInput()
                         .onSubmit(importIfReady)
                 } header: {
                     Text(AppLocalization.string("Shared key"))
                 } footer: {
-                    Text(AppLocalization.string("Must match the key configured on the MasterDnsVPN server."))
+                    Text(AppLocalization.string("Must match the key configured on the Prismo server."))
                 }
 
                 Section {
                     TextField(AppLocalization.string("Optional"), text: $name)
-                        .zanozaPlainInput()
+                        .prismoPlainInput()
                         .onSubmit(importIfReady)
                 } header: {
                     Text(AppLocalization.string("Profile name"))
@@ -138,7 +138,7 @@ public struct ImportProfileLinkSheet: View {
                 } header: {
                     Text(AppLocalization.string("Profile sharing link"))
                 } footer: {
-                    Text(AppLocalization.string("Paste a Zanoza profile sharing link."))
+                    Text(AppLocalization.string("Paste a Prismo profile sharing link."))
                 }
             }
             .formStyle(.grouped)
@@ -213,7 +213,7 @@ public struct ImportPrismoTokenSheet: View {
 
                 Section {
                     TextField(AppLocalization.string("Your Prismo token"), text: $token)
-                        .zanozaPlainInput()
+                        .prismoPlainInput()
                         .onSubmit(importIfReady)
                 } header: {
                     Text(AppLocalization.string("Prismo token"))

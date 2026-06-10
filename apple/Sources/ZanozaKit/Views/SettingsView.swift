@@ -25,10 +25,10 @@ public struct SettingsView: View {
                 Toggle(AppLocalization.string("Require username/password"), isOn: $settings.socksAuthEnabled)
                 if settings.socksAuthEnabled {
                     TextField(AppLocalization.string("Username"), text: $settings.socksUser)
-                        .zanozaPlainInput()
+                        .prismoPlainInput()
                         .onSubmit(onCommit)
                     SecureField(AppLocalization.string("Password"), text: $settings.socksPass)
-                        .zanozaPlainInput()
+                        .prismoPlainInput()
                         .onSubmit(onCommit)
                 }
             } header: {
@@ -163,10 +163,10 @@ public struct SettingsView: View {
     private var diagnosticFooter: some View {
         let snapshot = physicalInterfaceMonitor.snapshot
         if snapshot.name.isEmpty {
-            Text(AppLocalization.string("Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up."))
+            Text(AppLocalization.string("Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Prismo after Wi-Fi/cellular is up."))
                 .foregroundColor(.orange)
         } else if snapshot.foreignVPNActive {
-            Text(AppLocalization.string("Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it."))
+            Text(AppLocalization.string("Another VPN app is active. Prismo pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it."))
                 .foregroundColor(.orange)
         } else {
             Text(AppLocalization.string("Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN."))

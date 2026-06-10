@@ -5,7 +5,7 @@ public final class ProfileStore {
     public static let shared = ProfileStore()
 
     private let fileURL: URL
-    private let queue = DispatchQueue(label: "io.zanoza.profilestore")
+    private let queue = DispatchQueue(label: "org.prismovpn.profilestore")
 
     private init() {
         let fm = FileManager.default

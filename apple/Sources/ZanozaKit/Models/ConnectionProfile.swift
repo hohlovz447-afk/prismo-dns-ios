@@ -140,6 +140,10 @@ public struct ConnectionProfile: Codable, Equatable, Identifiable {
         )
     }
 
+    /// Display name for the DNS-tunnel ("bypass") profile. Shown first in the
+    /// unified server list, above the regular VLESS servers.
+    public static let bypassProfileName = "Обход 🐌🐌"
+
     public static var empty: ConnectionProfile {
         ConnectionProfile(name: AppLocalization.string("New profile"))
     }

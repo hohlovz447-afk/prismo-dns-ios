@@ -4,7 +4,7 @@ public enum ProfileShareCodec {
     public static func encode(_ profile: ConnectionProfile) throws -> String {
         let payload = SharedProfilePayload(profile: profile)
         let data = try JSONEncoder().encode(payload)
-        return "zanoza://profile?data=\(base64URLEncode(data))"
+        return "prismodns://profile?data=\(base64URLEncode(data))"
     }
 
     public static func decode(_ input: String) throws -> ConnectionProfile {
@@ -25,7 +25,7 @@ public enum ProfileShareCodec {
         guard !trimmed.isEmpty else { throw ProfileShareCodecError.invalidLink }
 
         if let components = URLComponents(string: trimmed),
-           components.scheme?.lowercased() == "zanoza" {
+           components.scheme?.lowercased() == "prismodns" || components.scheme?.lowercased() == "zanoza" {
             guard components.host == "profile",
                   let payload = components.queryItems?.first(where: { $0.name == "data" })?.value,
                   !payload.isEmpty else {

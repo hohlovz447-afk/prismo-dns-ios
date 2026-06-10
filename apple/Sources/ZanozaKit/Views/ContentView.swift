@@ -278,12 +278,59 @@ private struct ProfilesHomeView: View {
                     viewModel.deleteProfiles(ids: ids)
                 }
             }
+
+            if !viewModel.vlessServers.isEmpty {
+                Section {
+                    ForEach(viewModel.vlessServers) { server in
+                        VlessServerRow(
+                            server: server,
+                            isActive: viewModel.activeVlessServerID == server.id,
+                            onSelect: { viewModel.connectVless(server) }
+                        )
+                    }
+                } header: {
+                    Text(AppLocalization.string("Speed servers"))
+                } footer: {
+                    Text(AppLocalization.string("Direct servers (faster). Pick a country to connect."))
+                }
+            }
         }
         #if os(iOS)
         .listStyle(.insetGrouped)
         #else
         .listStyle(.inset)
         #endif
+    }
+}
+
+private struct VlessServerRow: View {
+    let server: VlessServer
+    let isActive: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                Image(systemName: isActive ? "bolt.horizontal.circle.fill" : "bolt.horizontal.circle")
+                    .foregroundStyle(isActive ? Color.green : Color.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(server.displayName)
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                    Text("\(server.host):\(String(server.port))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if isActive {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(.green)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

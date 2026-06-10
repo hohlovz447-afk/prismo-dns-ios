@@ -64,12 +64,33 @@ public enum PrismoTokenService {
         return trimmed
     }
 
+    /// Full result of a verify call: the ready-to-use profile, the validated
+    /// token (so the app can re-check the subscription later) and the expiry.
+    public struct VerifiedSubscription {
+        public let profile: ConnectionProfile
+        public let token: String
+        public let expiresAt: Date?
+    }
+
     /// Calls the Prismo backend and returns a fully populated profile.
+    /// Convenience wrapper around ``verify(token:)``.
     public static func fetchProfile(
         token rawToken: String,
         baseURL: URL = defaultBaseURL,
         session: URLSession = .shared
     ) async throws -> ConnectionProfile {
+        try await verify(token: rawToken, baseURL: baseURL, session: session).profile
+    }
+
+    /// Calls the Prismo backend, validates the subscription and returns the
+    /// profile together with the token and expiry date. Throws ``TokenError``
+    /// for invalid (404) / expired (403) / network problems so the caller can
+    /// surface a precise message.
+    public static func verify(
+        token rawToken: String,
+        baseURL: URL = defaultBaseURL,
+        session: URLSession = .shared
+    ) async throws -> VerifiedSubscription {
         let token = try extractToken(from: rawToken)
 
         let url = baseURL
@@ -80,6 +101,7 @@ public enum PrismoTokenService {
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("PrismoDNS-iOS", forHTTPHeaderField: "User-Agent")
 
         let data: Data
@@ -123,11 +145,17 @@ public enum PrismoTokenService {
             throw TokenError.missingTunnelConfig
         }
 
-        return ConnectionProfile(
-            name: "Prismo DNS",
+        let profile = ConnectionProfile(
+            name: ConnectionProfile.bypassProfileName,
             domain: domain,
             encryptionKey: config.encryptionKey,
             encryptionMethod: EncryptionMethod(rawValue: config.encryptionMethod) ?? .xor
+        )
+
+        return VerifiedSubscription(
+            profile: profile,
+            token: token,
+            expiresAt: decoded.expiryDate
         )
     }
 
@@ -136,10 +164,29 @@ public enum PrismoTokenService {
     private struct VerifyResponse: Decodable {
         let status: String?
         let tunnelConfig: TunnelConfig?
+        let expiresAt: String?
+        let expiresTs: Int?
 
         enum CodingKeys: String, CodingKey {
             case status
             case tunnelConfig = "tunnel_config"
+            case expiresAt = "expires_at"
+            case expiresTs = "expires_ts"
+        }
+
+        /// Subscription expiry from either the unix timestamp or ISO-8601 field.
+        var expiryDate: Date? {
+            if let ts = expiresTs {
+                return Date(timeIntervalSince1970: TimeInterval(ts))
+            }
+            if let iso = expiresAt {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = formatter.date(from: iso) { return date }
+                formatter.formatOptions = [.withInternetDateTime]
+                return formatter.date(from: iso)
+            }
+            return nil
         }
     }
 

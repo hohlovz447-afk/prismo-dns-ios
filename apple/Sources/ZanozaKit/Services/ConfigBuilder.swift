@@ -1,8 +1,8 @@
 import Foundation
 
-// Builds the TOML configuration text consumed by the embedded MasterDnsVPN
-// Go client. SOCKS listener and resolver list come from the app-wide
-// AppSettings; profile contributes domain, key, encryption and routing knobs.
+// Builds the TOML configuration text consumed by the embedded tunnel core.
+// SOCKS listener and resolver list come from the app-wide AppSettings;
+// profile contributes domain, key, encryption and routing knobs.
 public enum ConfigBuilder {
     public static func buildTOML(for profile: ConnectionProfile, settings: AppSettings) -> String {
         let domain = escape(profile.domain)
@@ -11,7 +11,7 @@ public enum ConfigBuilder {
         let pass = escape(settings.socksPass)
 
         return """
-        # Zanoza generated client_config.toml — do not edit manually.
+        # Auto-generated client config — do not edit manually.
         DOMAINS = ["\(domain)"]
         DATA_ENCRYPTION_METHOD = \(profile.encryptionMethod.rawValue)
         ENCRYPTION_KEY = "\(key)"

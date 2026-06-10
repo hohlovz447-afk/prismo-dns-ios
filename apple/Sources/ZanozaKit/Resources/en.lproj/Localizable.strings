@@ -11,6 +11,11 @@
 "This token is not valid." = "This token is not valid.";
 "Your subscription is expired or inactive." = "Your subscription is expired or inactive.";
 "Unexpected response from the Prismo server." = "Unexpected response from the Prismo server.";
+"Subscription did not contain any servers." = "Subscription did not contain any servers.";
+"Speed servers" = "Speed servers";
+"Direct servers (faster). Pick a country to connect." = "Direct servers (faster). Pick a country to connect.";
+"Failed to build the server configuration." = "Failed to build the server configuration.";
+"Speed-mode engine is not embedded in the build." = "Speed-mode engine is not embedded in the build.";
 
 "Disconnected" = "Disconnected";
 "Connecting..." = "Connecting...";
@@ -40,7 +45,7 @@
 "No response." = "No response.";
 
 "No profiles yet" = "No profiles yet";
-"Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Tap Import to add a Prismo DNS server using its delegated domain and encryption key.";
+"Tap Import to add a Prismo server using its delegated domain and encryption key." = "Tap Import to add a Prismo server using its delegated domain and encryption key.";
 "Profiles" = "Profiles";
 "Untitled" = "Untitled";
 "No profile" = "No profile";
@@ -81,11 +86,11 @@
 "Import profile" = "Import profile";
 "Import from clipboard" = "Import from clipboard";
 "Profile sharing link" = "Profile sharing link";
-"Paste a Zanoza profile sharing link." = "Paste a Prismo DNS profile sharing link.";
+"Paste a Prismo profile sharing link." = "Paste a Prismo profile sharing link.";
 "Delegated domain" = "Delegated domain";
 "During installation, you were asked for a domain. It must be the same delegated subdomain you configured in the NS record, for example v.example.com." = "During installation, you were asked for a domain. It must be the same delegated subdomain you configured in the NS record, for example v.example.com.";
 "Shared key" = "Shared key";
-"Must match the key configured on the MasterDnsVPN server." = "Must match the key configured on the MasterDnsVPN server.";
+"Must match the key configured on the Prismo server." = "Must match the key configured on the Prismo server.";
 "Optional" = "Optional";
 
 "Domain is required." = "Domain is required.";
@@ -94,8 +99,8 @@
 "SOCKS port must be between 1024 and 65535." = "SOCKS port must be between 1024 and 65535.";
 "Invalid profile sharing link." = "Invalid profile sharing link.";
 "Profile sharing link is not supported." = "Profile sharing link is not supported.";
-"MasterDns Mobile.xcframework not embedded in the build." = "MasterDns Mobile.xcframework not embedded in the build.";
-"Failed to start MasterDnsVPN client." = "Failed to start MasterDnsVPN client.";
+"Core engine is not embedded in the build." = "Core engine is not embedded in the build.";
+"Failed to start the tunnel." = "Failed to start the tunnel.";
 "Failed to download DNS resolver list (%@): %@" = "Failed to download DNS resolver list (%@): %@";
 "DNS resolver list request failed (%@): HTTP %d" = "DNS resolver list request failed (%@): HTTP %d";
 "Invalid DNS resolver list response: %@" = "Invalid DNS resolver list response: %@";
@@ -113,11 +118,11 @@
 "Cellular" = "Cellular";
 "Wired" = "Wired";
 "Other" = "Other";
-"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Prismo DNS after Wi-Fi/cellular is up.";
+"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Prismo after Wi-Fi/cellular is up." = "Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Prismo after Wi-Fi/cellular is up.";
 "Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN." = "Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN.";
 "Source IPv4" = "Source IPv4";
 "Source IPv6" = "Source IPv6";
 "Third-party VPN" = "Third-party VPN";
 "Active" = "Active";
 "Not detected" = "Not detected";
-"Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Another VPN app is active. Prismo DNS pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it.";
+"Another VPN app is active. Prismo pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Another VPN app is active. Prismo pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it.";

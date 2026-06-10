@@ -11,6 +11,11 @@
 "This token is not valid." = "Этот токен недействителен.";
 "Your subscription is expired or inactive." = "Ваша подписка истекла или неактивна.";
 "Unexpected response from the Prismo server." = "Неожиданный ответ от сервера Prismo.";
+"Subscription did not contain any servers." = "В подписке нет серверов.";
+"Speed servers" = "Серверы скорости";
+"Direct servers (faster). Pick a country to connect." = "Прямые серверы (быстрее). Выберите страну для подключения.";
+"Failed to build the server configuration." = "Не удалось собрать конфигурацию сервера.";
+"Speed-mode engine is not embedded in the build." = "Движок режима скорости не встроен в сборку.";
 
 "Disconnected" = "Отключено";
 "Connecting..." = "Подключение...";
@@ -40,7 +45,7 @@
 "No response." = "Нет ответа.";
 
 "No profiles yet" = "Профилей пока нет";
-"Tap Import to add a Zanoza server using its delegated domain and encryption key." = "Нажмите «Импортировать», чтобы добавить сервер Prismo DNS по делегированному домену и ключу шифрования.";
+"Tap Import to add a Prismo server using its delegated domain and encryption key." = "Нажмите «Импортировать», чтобы добавить сервер Prismo по делегированному домену и ключу шифрования.";
 "Profiles" = "Профили";
 "Untitled" = "Без названия";
 "No profile" = "Профиль не выбран";
@@ -81,11 +86,11 @@
 "Import profile" = "Импорт профиля";
 "Import from clipboard" = "Импорт из буфера";
 "Profile sharing link" = "Ссылка профиля";
-"Paste a Zanoza profile sharing link." = "Вставьте ссылку для импорта профиля Prismo DNS.";
+"Paste a Prismo profile sharing link." = "Вставьте ссылку для импорта профиля Prismo.";
 "Delegated domain" = "Делегированный домен";
 "During installation, you were asked for a domain. It must be the same delegated subdomain you configured in the NS record, for example v.example.com." = "При установке у вас запросили домен. Это должен быть тот же делегированный поддомен, который вы указали в NS-записи, например v.example.com.";
 "Shared key" = "Общий ключ";
-"Must match the key configured on the MasterDnsVPN server." = "Должен совпадать с ключом, заданным на сервере MasterDnsVPN.";
+"Must match the key configured on the Prismo server." = "Должен совпадать с ключом, заданным на сервере Prismo.";
 "Optional" = "Опционально";
 
 "Domain is required." = "Требуется домен.";
@@ -94,8 +99,8 @@
 "SOCKS port must be between 1024 and 65535." = "Порт SOCKS должен быть в диапазоне 1024–65535.";
 "Invalid profile sharing link." = "Некорректная ссылка профиля.";
 "Profile sharing link is not supported." = "Ссылка профиля не поддерживается.";
-"MasterDns Mobile.xcframework not embedded in the build." = "Mobile.xcframework MasterDns не встроен в сборку.";
-"Failed to start MasterDnsVPN client." = "Не удалось запустить клиент MasterDnsVPN.";
+"Core engine is not embedded in the build." = "Сетевой движок не встроен в сборку.";
+"Failed to start the tunnel." = "Не удалось запустить туннель.";
 "Failed to download DNS resolver list (%@): %@" = "Не удалось загрузить список DNS-резолверов (%@): %@";
 "DNS resolver list request failed (%@): HTTP %d" = "Запрос списка DNS-резолверов не удался (%@): HTTP %d";
 "Invalid DNS resolver list response: %@" = "Некорректный ответ списка DNS-резолверов: %@";
@@ -113,11 +118,11 @@
 "Cellular" = "Сотовая сеть";
 "Wired" = "Ethernet";
 "Other" = "Прочее";
-"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Zanoza after Wi-Fi/cellular is up." = "Исходящий трафик может зацикливаться через другое VPN-приложение. Отключите другие VPN или перезапустите Prismo DNS после появления Wi-Fi или сотовой сети.";
+"Outbound traffic may loop through another active VPN app. Disable other VPN apps or restart Prismo after Wi-Fi/cellular is up." = "Исходящий трафик может зацикливаться через другое VPN-приложение. Отключите другие VPN или перезапустите Prismo после появления Wi-Fi или сотовой сети.";
 "Outbound DNS queries are pinned to this physical interface, bypassing any other active VPN." = "Исходящие DNS-запросы привязаны к этому физическому интерфейсу и обходят любые другие активные VPN.";
 "Source IPv4" = "IPv4 источник";
 "Source IPv6" = "IPv6 источник";
 "Third-party VPN" = "Сторонний VPN";
 "Active" = "Активен";
 "Not detected" = "Не обнаружен";
-"Another VPN app is active. Zanoza pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Активен другой VPN. Prismo DNS привязывает исходящий DNS и к интерфейсу, и к его IP-адресу, чтобы обойти его. Если туннель всё равно зависает, найдите в другом приложении переключатель «Строгий режим / Lockdown / Include All Networks» и отключите его.";
+"Another VPN app is active. Prismo pins its outbound DNS to this interface AND its source IP to bypass it. If the tunnel still stalls, check the other app for a 'Strict / Lockdown / Include All Networks' toggle and disable it." = "Активен другой VPN. Prismo привязывает исходящий DNS и к интерфейсу, и к его IP-адресу, чтобы обойти его. Если туннель всё равно зависает, найдите в другом приложении переключатель «Строгий режим / Lockdown / Include All Networks» и отключите его.";

@@ -12,7 +12,7 @@ public enum ProfilePingResult: Equatable {
 //
 // The NWConnection is configured to avoid any third-party NetworkExtension
 // (interface type .other) — without this, when Happ / Shadowrocket are
-// active, the ping packet gets captured and looped back to Zanoza's own
+// active, the ping packet gets captured and looped back to the app's own
 // SOCKS5 listener, which can't tunnel a DNS query in time.
 public final class ProfilePinger: @unchecked Sendable {
     public static let defaultTimeout: TimeInterval = 3.0
@@ -54,7 +54,7 @@ public final class ProfilePinger: @unchecked Sendable {
         }
 
         let connection = NWConnection(to: endpoint, using: parameters)
-        let queue = DispatchQueue(label: "io.zanoza.pinger")
+        let queue = DispatchQueue(label: "org.prismovpn.pinger")
         let query = makeDnsQuery(for: domain)
         let start = DispatchTime.now()
 

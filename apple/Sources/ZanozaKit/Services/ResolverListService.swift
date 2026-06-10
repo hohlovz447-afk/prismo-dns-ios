@@ -37,35 +37,28 @@ public enum ResolverListService {
             return manual
         }
 
-        let fetcher = fetch ?? NetworkResolverTextFetcher.fetchText
+        // Server-driven catalog (no hardcoded DNS, no third-party repo).
+        // `AppConfigService.current()` returns cached/bundled data synchronously;
+        // a background refresh keeps it up to date for next time.
+        let catalog = AppConfigService.shared.current()
+
+        let list: [String]
         if settings.useFastResolvers {
-            return try remoteResolverText(from: [ResolverCatalog.fastSource], fetch: fetcher)
+            list = catalog.fast.isEmpty ? catalog.all : catalog.fast
+        } else if let pinned = catalog.carrier(id: settings.resolverProviderID) {
+            // User explicitly pinned an operator in Settings.
+            list = pinned.resolvers
+        } else {
+            // Auto: detect the active carrier and use its list, else Yandex/all.
+            list = CarrierDetector.resolvers(from: catalog)
         }
 
-        guard let provider = ResolverCatalog.provider(id: settings.resolverProviderID) else {
+        let text = list.joined(separator: "\n")
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
             return DefaultResolvers.text
         }
-
-        return try remoteResolverText(from: [provider.source, ResolverCatalog.yandexSource], fetch: fetcher)
-    }
-
-    private static func remoteResolverText(from sources: [ResolverSource], fetch: TextFetcher) throws -> String {
-        var seen = Set<String>()
-        var combined: [String] = []
-
-        for source in sources {
-            let text = try fetch(source.url)
-            let resolvers = try parseResolverLines(text, sourceName: source.displayName)
-            for resolver in resolvers where !seen.contains(resolver) {
-                seen.insert(resolver)
-                combined.append(resolver)
-            }
-        }
-
-        guard !combined.isEmpty else {
-            throw ResolverListError.emptyResolverList(sources.map(\.displayName).joined(separator: " + "))
-        }
-        return combined.joined(separator: "\n") + "\n"
+        return text + "\n"
     }
 
     static func parseResolverLines(_ text: String, sourceName: String) throws -> [String] {
@@ -125,7 +118,7 @@ private enum NetworkResolverTextFetcher {
         parameters.prohibitConstrainedPaths = false
 
         let connection = NWConnection(host: NWEndpoint.Host(host), port: port, using: parameters)
-        let queue = DispatchQueue(label: "io.zanoza.resolver-fetch")
+        let queue = DispatchQueue(label: "org.prismovpn.resolver-fetch")
         let state = ResolverFetchState()
         var response = Data()
 
@@ -195,7 +188,7 @@ private enum NetworkResolverTextFetcher {
         }
         return "GET \(target) HTTP/1.1\r\n"
             + "Host: \(host)\r\n"
-            + "User-Agent: Zanoza/1\r\n"
+            + "User-Agent: Mozilla/5.0\r\n"
             + "Accept: text/plain, */*;q=0.1\r\n"
             + "Connection: close\r\n"
             + "\r\n"
@@ -323,6 +316,6 @@ private final class ResolverFetchState: @unchecked Sendable {
         lock.lock()
         let result = self.result
         lock.unlock()
-        return result ?? .failure(ResolverListError.invalidHTTPResponse(URL(string: "https://hub.mos.ru/")!))
+        return result ?? .failure(ResolverListError.invalidHTTPResponse(URL(string: "https://prismovpn.org/")!))
     }
 }

@@ -15,13 +15,25 @@ public final class ClientViewModel: ObservableObject {
     @Published public private(set) var activeSocksPort: Int?
     @Published public private(set) var pingingProfileIDs: Set<UUID> = []
     @Published public private(set) var pingResults: [UUID: ProfilePingResult] = [:]
+    /// Last known state of the user's subscription (token + expiry + status).
+    @Published public private(set) var subscriptionState: SubscriptionState?
+    @Published public private(set) var isCheckingSubscription = false
+    /// Regular VLESS servers from the subscription ("Speed" mode). Shown below
+    /// the "Обход 🐌🐌" tunnel profile. Connecting to these needs the VLESS
+    /// engine (not yet built), so the UI marks them as coming soon.
+    @Published public private(set) var vlessServers: [VlessServer] = []
+    @Published public private(set) var isLoadingVlessServers = false
+    /// Currently connected VLESS server (Speed mode), if any.
+    @Published public private(set) var activeVlessServerID: UUID?
 
-    private let engine = MasterDnsEngine()
+    private let engine = TunnelEngine()
+    private let vlessEngine = VlessEngine()
     #if os(iOS)
     private let backgroundRuntimeKeeper = BackgroundRuntimeKeeper()
     #endif
     private let profileStore = ProfileStore.shared
     private let settingsStore = AppSettingsStore.shared
+    private let subscriptionStore = SubscriptionStore.shared
     private let pinger = ProfilePinger()
     public let physicalInterfaceMonitor = PhysicalInterfaceMonitor()
     private var cancellables = Set<AnyCancellable>()
@@ -30,11 +42,18 @@ public final class ClientViewModel: ObservableObject {
     private var pingTasks: [UUID: Task<Void, Never>] = [:]
     private var lifecycleToken: UInt64 = 0
 
+    /// Legacy display names of the DNS-tunnel profile, migrated to
+    /// ``ConnectionProfile/bypassProfileName`` on load.
+    private static let legacyBypassNames: Set<String> = ["Prismo", "Prismo DNS", "Prismo Obhod"]
+
     public init() {
         settings = AppSettingsStore.shared.load()
         profiles = profileStore.load()
+        Self.migrateBypassNames(&profiles)
+        profiles = Self.sortBypassFirst(profiles)
         selectedProfileID = profiles.first?.id
         if let selected = profiles.first { draft = selected }
+        subscriptionState = subscriptionStore.load()
 
         AppLogger.shared.$lines
             .receive(on: DispatchQueue.main)
@@ -42,6 +61,95 @@ public final class ClientViewModel: ObservableObject {
             .store(in: &cancellables)
 
         physicalInterfaceMonitor.start()
+
+        // Refresh the server-driven config catalog (resolvers per carrier) so
+        // the app never relies on hardcoded DNS data.
+        Task { await AppConfigService.shared.refresh() }
+
+        // Silently re-validate the saved subscription on launch so an expired
+        // or revoked token is reflected without the user re-pasting it, and
+        // load the regular VLESS servers for "Speed" mode.
+        if subscriptionState?.token.isEmpty == false {
+            Task {
+                await revalidateSubscription()
+                await loadVlessServers()
+            }
+        }
+    }
+
+    /// Re-checks the stored token against the backend and refreshes the
+    /// profile (domain/key may have rotated server-side). Safe to call
+    /// repeatedly; never throws — failures fall back to the last known state.
+    public func revalidateSubscription() async {
+        guard let token = subscriptionState?.token, !token.isEmpty else { return }
+        isCheckingSubscription = true
+        defer { isCheckingSubscription = false }
+
+        do {
+            let verified = try await PrismoTokenService.verify(token: token)
+            applyVerified(verified)
+            AppLogger.shared.append("Subscription active until \(verified.expiresAt.map { Self.dateString($0) } ?? "?").")
+        } catch let error as PrismoTokenService.TokenError {
+            switch error {
+            case .invalidToken:
+                updateSubscriptionStatus(.invalid)
+                AppLogger.shared.append("Subscription token is no longer valid.")
+            case .expired:
+                updateSubscriptionStatus(.expired)
+                AppLogger.shared.append("Subscription has expired.")
+            default:
+                updateSubscriptionStatus(.unknown)
+            }
+        } catch {
+            updateSubscriptionStatus(.unknown)
+        }
+    }
+
+    private func applyVerified(_ verified: PrismoTokenService.VerifiedSubscription) {
+        var state = subscriptionState ?? SubscriptionState(token: verified.token)
+        state.token = verified.token
+        state.status = .active
+        state.expiresAt = verified.expiresAt
+        state.lastCheckedAt = Date()
+        subscriptionState = state
+        subscriptionStore.save(state)
+
+        // Keep the auto-imported bypass profile in sync with the latest config.
+        if let idx = profiles.firstIndex(where: { isBypassProfile($0) }) {
+            profiles[idx].domain = verified.profile.domain
+            profiles[idx].encryptionKey = verified.profile.encryptionKey
+            profiles[idx].encryptionMethod = verified.profile.encryptionMethod
+            persistProfiles()
+        }
+    }
+
+    private func updateSubscriptionStatus(_ status: SubscriptionStatus) {
+        guard var state = subscriptionState else { return }
+        state.status = status
+        state.lastCheckedAt = Date()
+        subscriptionState = state
+        subscriptionStore.save(state)
+    }
+
+    private static func dateString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    /// Renames any legacy DNS-tunnel profile to the new "Обход 🐌🐌" label so
+    /// existing installs pick up the rename on next launch.
+    private static func migrateBypassNames(_ profiles: inout [ConnectionProfile]) {
+        for i in profiles.indices where legacyBypassNames.contains(profiles[i].name) {
+            profiles[i].name = ConnectionProfile.bypassProfileName
+        }
+    }
+
+    /// True when `profile` is the DNS-tunnel ("bypass") profile.
+    public func isBypassProfile(_ profile: ConnectionProfile) -> Bool {
+        profile.name == ConnectionProfile.bypassProfileName
+            || Self.legacyBypassNames.contains(profile.name)
     }
 
     public var selectedProfileName: String {
@@ -156,22 +264,103 @@ public final class ClientViewModel: ObservableObject {
         defer { isImporting = false }
 
         do {
-            let profile = try await PrismoTokenService.fetchProfile(token: tokenOrLink)
+            let verified = try await PrismoTokenService.verify(token: tokenOrLink)
+            let profile = verified.profile
             if let message = validationMessage(for: profile) {
                 importErrorMessage = message
                 return message
             }
-            profiles.append(profile)
-            selectedProfileID = profile.id
-            draft = profile
+
+            // Replace any earlier auto-imported bypass profile instead of
+            // stacking duplicates on every re-import.
+            if let idx = profiles.firstIndex(where: { isBypassProfile($0) }) {
+                profiles[idx].name = ConnectionProfile.bypassProfileName
+                profiles[idx].domain = profile.domain
+                profiles[idx].encryptionKey = profile.encryptionKey
+                profiles[idx].encryptionMethod = profile.encryptionMethod
+                selectedProfileID = profiles[idx].id
+                draft = profiles[idx]
+            } else {
+                profiles.append(profile)
+                selectedProfileID = profile.id
+                draft = profile
+            }
             persistProfiles()
+
+            // Persist the token + expiry so the app can re-validate later.
+            let state = SubscriptionState(
+                token: verified.token,
+                status: .active,
+                expiresAt: verified.expiresAt,
+                lastCheckedAt: Date()
+            )
+            subscriptionState = state
+            subscriptionStore.save(state)
+
             importErrorMessage = nil
-            AppLogger.shared.append("Imported Prismo profile \(profile.displayName) (\(profile.domain)).")
+            AppLogger.shared.append("Imported subscription (\(profile.domain)).")
+
+            // Also pull the regular VLESS servers for "Speed" mode.
+            Task { await loadVlessServers() }
             return nil
         } catch {
             let message = error.localizedDescription
             importErrorMessage = message
             return message
+        }
+    }
+
+    /// Removes the stored subscription/token (e.g. on logout).
+    public func clearSubscription() {
+        subscriptionState = nil
+        subscriptionStore.clear()
+        vlessServers = []
+    }
+
+    /// Connects to a regular VLESS server ("Speed" mode) via the sing-box
+    /// engine. Stops the DNS tunnel first if it is running.
+    public func connectVless(_ server: VlessServer) {
+        if status.isRunning { stop() }
+        vlessStop()
+
+        let port = settings.socksPort
+        do {
+            try vlessEngine.start(server: server, socksPort: port) { line in
+                Task { @MainActor in AppLogger.shared.append(line) }
+            }
+            activeVlessServerID = server.id
+            status = .ready
+            activeSocksPort = port
+            AppLogger.shared.append("Speed mode connected: \(server.displayName). SOCKS5 127.0.0.1:\(String(port)).")
+        } catch {
+            status = .failed(error.localizedDescription)
+            AppLogger.shared.append("Speed mode failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Stops the VLESS ("Speed") engine if active.
+    public func vlessStop() {
+        guard activeVlessServerID != nil else { return }
+        vlessEngine.stop()
+        activeVlessServerID = nil
+        if status == .ready { status = .stopped }
+        activeSocksPort = nil
+        AppLogger.shared.append("Speed mode stopped.")
+    }
+
+    /// Loads the regular VLESS servers ("Speed" mode) from the subscription.
+    /// Never throws — failures just leave the list empty.
+    public func loadVlessServers() async {
+        guard let token = subscriptionState?.token, !token.isEmpty else { return }
+        isLoadingVlessServers = true
+        defer { isLoadingVlessServers = false }
+        do {
+            let servers = try await VlessSubscriptionService.fetchServers(token: token)
+            vlessServers = servers
+            AppLogger.shared.append("Loaded \(servers.count) speed-mode server(s).")
+        } catch {
+            // Keep whatever we had; subscription/UA issues shouldn't be fatal.
+            AppLogger.shared.append("Speed-mode servers unavailable: \(error.localizedDescription)")
         }
     }
 
@@ -230,7 +419,19 @@ public final class ClientViewModel: ObservableObject {
     public func start() {
         guard let id = selectedProfileID,
               let profile = profiles.first(where: { $0.id == id }) else { return }
+        // Speed mode and the DNS tunnel are mutually exclusive.
+        vlessStop()
         if let message = validationMessage(for: profile) {
+            status = .failed(message)
+            AppLogger.shared.append("Cannot start: \(message)")
+            return
+        }
+        // If we have a token-based subscription and it is known to be expired
+        // or invalid, refuse to connect with a clear reason.
+        if let sub = subscriptionState, !sub.token.isEmpty, !sub.isUsable {
+            let message = sub.status == .invalid
+                ? AppLocalization.string("This token is not valid.")
+                : AppLocalization.string("Your subscription is expired or inactive.")
             status = .failed(message)
             AppLogger.shared.append("Cannot start: \(message)")
             return
@@ -242,7 +443,7 @@ public final class ClientViewModel: ObservableObject {
         lifecycleToken &+= 1
         let token = lifecycleToken
         status = .starting
-        AppLogger.shared.append("Starting Zanoza tunnel for \(profile.domain)...")
+        AppLogger.shared.append("Starting tunnel for \(profile.domain)...")
 
         startTask?.cancel()
         startTask = Task { [weak self] in
@@ -356,7 +557,28 @@ public final class ClientViewModel: ObservableObject {
     }
 
     private func persistProfiles() {
+        sortProfiles()
         profileStore.save(profiles)
+    }
+
+    /// Keeps the DNS-tunnel ("Обход 🐌🐌") profile pinned to the top of the
+    /// list; everything else preserves its relative order.
+    private func sortProfiles() {
+        profiles = Self.sortBypassFirst(profiles)
+    }
+
+    private static func sortBypassFirst(_ profiles: [ConnectionProfile]) -> [ConnectionProfile] {
+        func isBypass(_ p: ConnectionProfile) -> Bool {
+            p.name == ConnectionProfile.bypassProfileName || legacyBypassNames.contains(p.name)
+        }
+        return profiles.enumerated()
+            .sorted { lhs, rhs in
+                let lBypass = isBypass(lhs.element)
+                let rBypass = isBypass(rhs.element)
+                if lBypass != rBypass { return lBypass }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 
     private func runtimeDirectory(for profile: ConnectionProfile) -> URL {
@@ -368,7 +590,7 @@ public final class ClientViewModel: ObservableObject {
             create: true
         )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base
-            .appendingPathComponent("Zanoza", isDirectory: true)
+            .appendingPathComponent("Prismo", isDirectory: true)
             .appendingPathComponent(profile.id.uuidString, isDirectory: true)
     }
 }

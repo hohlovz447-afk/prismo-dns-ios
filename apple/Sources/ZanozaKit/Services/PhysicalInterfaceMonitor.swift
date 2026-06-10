@@ -47,7 +47,7 @@ public final class PhysicalInterfaceMonitor: ObservableObject {
 
     #if canImport(Network)
     private let pathMonitor = NWPathMonitor()
-    private let queue = DispatchQueue(label: "io.zanoza.physical-interface")
+    private let queue = DispatchQueue(label: "org.prismovpn.physical-interface")
     #endif
     private var started = false
 
@@ -100,7 +100,7 @@ public final class PhysicalInterfaceMonitor: ObservableObject {
     nonisolated static func resolveInterface(path: NWPath) -> Snapshot {
         // Detect a foreign VPN: NWPath reports interface type .other when
         // an NEPacketTunnelProvider is up. We only flag it when it appears
-        // ALONGSIDE a real physical link, because Zanoza itself never
+        // ALONGSIDE a real physical link, because the app itself never
         // installs an NE.
         let foreignVPN = path.usesInterfaceType(.other)
 

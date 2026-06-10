@@ -26,16 +26,16 @@ public struct ProfileEditorView: View {
 
             Section(AppLocalization.string("Profile name")) {
                 TextField(AppLocalization.string("Profile name"), text: $profile.name)
-                    .zanozaPlainInput()
+                    .prismoPlainInput()
                     .onSubmit(onCommit)
             }
 
             Section(AppLocalization.string("Server")) {
                 TextField("v.example.com", text: $profile.domain)
-                    .zanozaPlainInput()
+                    .prismoPlainInput()
                     .onSubmit(onCommit)
                 SecureField(AppLocalization.string("Encryption key"), text: $profile.encryptionKey)
-                    .zanozaPlainInput()
+                    .prismoPlainInput()
                     .onSubmit(onCommit)
                 Picker(AppLocalization.string("Encryption method"), selection: $profile.encryptionMethod) {
                     ForEach(EncryptionMethod.allCases) { method in
@@ -90,7 +90,7 @@ public struct ProfileEditorView: View {
 
 extension View {
     @ViewBuilder
-    func zanozaPlainInput() -> some View {
+    func prismoPlainInput() -> some View {
         #if os(iOS)
         self
             .textFieldStyle(.plain)

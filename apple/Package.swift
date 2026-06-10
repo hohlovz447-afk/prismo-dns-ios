@@ -19,6 +19,13 @@ let package = Package(
             name: "Mobile",
             path: "Frameworks/Mobile.xcframework"
         ),
+        // NOTE: Singbox.xcframework (sing-box / "Speed" mode) is built by a
+        // dedicated CI job (build-singbox.yml). Once that job is green, add
+        // it back as a binaryTarget + dependency here to link it into the app:
+        //   .binaryTarget(name: "Singbox", path: "Frameworks/Singbox.xcframework"),
+        // and add `.target(name: "Singbox", condition: .when(platforms: [.iOS]))`
+        // to ZanozaKit's dependencies. Until then VlessEngine compiles via
+        // `#if canImport(Singbox)` and reports "engine not embedded".
         .target(
             name: "ZanozaKit",
             dependencies: [

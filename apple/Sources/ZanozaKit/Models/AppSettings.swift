@@ -21,8 +21,8 @@ public struct AppSettings: Codable, Equatable {
 
     public init(
         socksPort: Int = Self.defaultSocksPort,
-        socksUser: String = "zanoza",
-        socksPass: String = "zanoza",
+        socksUser: String = "prismo",
+        socksPass: String = "prismo",
         socksAuthEnabled: Bool = false,
         customResolvers: String = "",
         resolverProviderID: String = Self.noResolverProviderID,
@@ -43,8 +43,8 @@ public struct AppSettings: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let port = try container.decodeIfPresent(Int.self, forKey: .socksPort) ?? Self.defaultSocksPort
         socksPort = Self.normalizedSocksPort(port)
-        socksUser = try container.decodeIfPresent(String.self, forKey: .socksUser) ?? "zanoza"
-        socksPass = try container.decodeIfPresent(String.self, forKey: .socksPass) ?? "zanoza"
+        socksUser = try container.decodeIfPresent(String.self, forKey: .socksUser) ?? "prismo"
+        socksPass = try container.decodeIfPresent(String.self, forKey: .socksPass) ?? "prismo"
         socksAuthEnabled = try container.decodeIfPresent(Bool.self, forKey: .socksAuthEnabled) ?? false
         customResolvers = try container.decodeIfPresent(String.self, forKey: .customResolvers) ?? ""
         let providerID = try container.decodeIfPresent(String.self, forKey: .resolverProviderID) ?? Self.noResolverProviderID

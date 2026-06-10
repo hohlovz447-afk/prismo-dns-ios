@@ -4,7 +4,7 @@ public final class AppSettingsStore {
     public static let shared = AppSettingsStore()
 
     private let fileURL: URL
-    private let queue = DispatchQueue(label: "io.zanoza.settingsstore")
+    private let queue = DispatchQueue(label: "org.prismovpn.settingsstore")
 
     private init() {
         let fm = FileManager.default

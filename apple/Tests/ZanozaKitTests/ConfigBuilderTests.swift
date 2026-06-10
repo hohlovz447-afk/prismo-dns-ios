@@ -152,43 +152,44 @@ final class ProfileShareCodecTests: XCTestCase {
 }
 
 final class ResolverListServiceTests: XCTestCase {
-    func testProviderResolverCombinesProviderWithYandex() throws {
-        let settings = AppSettings(resolverProviderID: "megafon")
-        let text = try ResolverListService.resolve(settings: settings, fetch: { url in
-            switch url.lastPathComponent {
-            case "megafon.txt":
-                return "1.1.1.1\n2.2.2.2\n"
-            case "yandex.txt":
-                return "2.2.2.2\n3.3.3.3\n"
-            default:
-                XCTFail("Unexpected resolver URL \(url)")
-                return ""
-            }
-        })
-        XCTAssertEqual(text, "1.1.1.1\n2.2.2.2\n3.3.3.3\n")
+    func testFastUsesCatalogFastList() throws {
+        // No network in tests → AppConfigService falls back to the bundled
+        // catalog, so the fast list comes from AppConfigCatalog.bundledFallback.
+        let settings = AppSettings(useFastResolvers: true)
+        let text = try ResolverListService.resolve(settings: settings)
+        let expected = AppConfigCatalog.bundledFallback.fast.joined(separator: "\n") + "\n"
+        XCTAssertEqual(text, expected)
     }
 
-    func testFastResolverDoesNotCombineYandex() throws {
-        let settings = AppSettings(resolverProviderID: "megafon", useFastResolvers: true)
-        let text = try ResolverListService.resolve(settings: settings, fetch: { url in
-            XCTAssertEqual(url.lastPathComponent, "fast.txt")
-            return "4.4.4.4\n"
-        })
-        XCTAssertEqual(text, "4.4.4.4\n")
+    func testAutoUsesYandexFallbackWhenNoCarrier() throws {
+        // On non-iOS / no detected carrier, auto mode picks the catalog's
+        // Yandex list.
+        let settings = AppSettings()
+        let text = try ResolverListService.resolve(settings: settings)
+        let expected = AppConfigCatalog.bundledFallback.yandex.joined(separator: "\n") + "\n"
+        XCTAssertEqual(text, expected)
     }
 
-    func testManualResolversSkipRemoteFetch() throws {
+    func testManualResolversSkipCatalog() throws {
         let manual = "10.0.0.1\n10.0.0.2"
         let settings = AppSettings(
             customResolvers: manual,
-            resolverProviderID: "mts",
             useFastResolvers: true
         )
-        let text = try ResolverListService.resolve(settings: settings, fetch: { url in
-            XCTFail("Manual resolver override should not fetch \(url)")
-            return ""
-        })
+        let text = try ResolverListService.resolve(settings: settings)
         XCTAssertEqual(text, manual)
+    }
+
+    func testCatalogCarrierLookupByPLMN() {
+        let catalog = AppConfigCatalog(
+            version: 1,
+            carriers: [
+                .init(id: "mts", name: "МТС", mccMnc: ["25001"], resolvers: ["213.87.0.1"]),
+            ],
+            fast: [], yandex: [], all: []
+        )
+        XCTAssertEqual(catalog.carrier(forPLMN: "25001")?.id, "mts")
+        XCTAssertNil(catalog.carrier(forPLMN: "25099"))
     }
 }
 

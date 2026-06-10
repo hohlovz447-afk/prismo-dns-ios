@@ -4,7 +4,7 @@ import Foundation
 import Mobile
 #endif
 
-public enum MasterDnsEngineError: LocalizedError {
+public enum TunnelEngineError: LocalizedError {
     case frameworkMissing
     case invalidProfile(String)
     case startFailed(String)
@@ -12,7 +12,7 @@ public enum MasterDnsEngineError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .frameworkMissing:
-            return AppLocalization.string("MasterDns Mobile.xcframework not embedded in the build.")
+            return AppLocalization.string("Core engine is not embedded in the build.")
         case .invalidProfile(let message):
             return message
         case .startFailed(let message):
@@ -46,7 +46,7 @@ public struct EngineStartOptions {
     }
 }
 
-public final class MasterDnsEngine {
+public final class TunnelEngine {
     private let lock = NSLock()
     private var currentSocksPort: Int?
     #if canImport(Mobile)
@@ -102,15 +102,15 @@ public final class MasterDnsEngine {
             MobileSetLogWriter(nil)
             lock.lock(); logRelay = nil; lock.unlock()
             let message = startError?.localizedDescription
-                ?? AppLocalization.string("Failed to start MasterDnsVPN client.")
-            throw MasterDnsEngineError.startFailed(message)
+                ?? AppLocalization.string("Failed to start the tunnel.")
+            throw TunnelEngineError.startFailed(message)
         }
         lock.lock(); currentSocksPort = options.settings.socksPort; lock.unlock()
         #else
         _ = configTOML
         _ = resolvers
         log("Mobile framework missing; cannot start tunnel.")
-        throw MasterDnsEngineError.frameworkMissing
+        throw TunnelEngineError.frameworkMissing
         #endif
     }
 
@@ -130,16 +130,16 @@ public final class MasterDnsEngine {
     private func validate(_ profile: ConnectionProfile, settings: AppSettings) throws {
         let trimmedDomain = profile.domain.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedDomain.isEmpty else {
-            throw MasterDnsEngineError.invalidProfile(AppLocalization.string("Domain is required."))
+            throw TunnelEngineError.invalidProfile(AppLocalization.string("Domain is required."))
         }
         guard trimmedDomain.contains(".") else {
-            throw MasterDnsEngineError.invalidProfile(AppLocalization.string("Domain must be a delegated subdomain (e.g. v.example.com)."))
+            throw TunnelEngineError.invalidProfile(AppLocalization.string("Domain must be a delegated subdomain (e.g. v.example.com)."))
         }
         guard !profile.encryptionKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw MasterDnsEngineError.invalidProfile(AppLocalization.string("Encryption key is required."))
+            throw TunnelEngineError.invalidProfile(AppLocalization.string("Encryption key is required."))
         }
         guard AppSettings.socksPortRange.contains(settings.socksPort) else {
-            throw MasterDnsEngineError.invalidProfile(AppLocalization.string("SOCKS port must be between 1024 and 65535."))
+            throw TunnelEngineError.invalidProfile(AppLocalization.string("SOCKS port must be between 1024 and 65535."))
         }
     }
 }
