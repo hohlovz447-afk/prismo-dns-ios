@@ -38,6 +38,8 @@ mkdir -p "$OUT_DIR"
 rm -rf "$OUT"
 
 cd "$GO_DIR"
+# tools.go (build tag `tools`) pins golang.org/x/mobile so `go mod tidy`
+# keeps it in the graph for `gomobile bind`.
 go mod tidy
 go mod download
 
