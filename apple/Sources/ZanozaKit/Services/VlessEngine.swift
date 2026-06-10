@@ -43,11 +43,12 @@ public final class VlessEngine {
 
         #if canImport(Singbox)
         let relay = SingboxLogRelay { line in log(line) }
-        var startError: NSError?
-        // gomobile maps `Start(string, LogWriter) error` to a throwing call.
-        SingboxStart(json, relay, &startError)
-        if let startError {
-            throw VlessEngineError.startFailed(startError.localizedDescription)
+        // gomobile maps a Go func returning a sole `error` to a Swift
+        // throwing function, so we call it with `try`.
+        do {
+            try SingboxStart(json, relay)
+        } catch {
+            throw VlessEngineError.startFailed(error.localizedDescription)
         }
         lock.lock(); running = true; lock.unlock()
         #else
