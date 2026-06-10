@@ -6,7 +6,11 @@
 // vless outbound) via VlessConfigBuilder, passes it to Start, and routes
 // traffic through the local socks proxy (and, with a Network Extension, the
 // system tun).
-package mobile
+//
+// The package is named `singbox` (not `mobile`) so gomobile generates
+// Singbox-prefixed symbols (SingboxStart, SingboxLogWriterProtocol, ...) and
+// avoids colliding with the existing Mobile.xcframework (MasterDNS core).
+package singbox
 
 import (
 	"context"
