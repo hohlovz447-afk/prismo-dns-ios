@@ -40,21 +40,51 @@ public enum PrismoTokenService {
         }
     }
 
-    /// Extracts the raw token from either a bare token string or a
-    /// `prismodns://token?value=...` / `zanoza://token?value=...` deep link.
+    /// Extracts the raw token from any of the forms the user might paste:
+    ///   - a bare token: `ReMpAQ7U7hg`
+    ///   - a deep link: `prismodns://token?value=...` / `zanoza://token?value=...`
+    ///   - a subscription URL: `https://prismovpn.org/sub/ReMpAQ7U7hg` (the
+    ///     exact link the Telegram bot hands out) — token is the path segment
+    ///     after `/sub/`.
     public static func extractToken(from input: String) throws -> String {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw TokenError.emptyToken }
 
         if let comps = URLComponents(string: trimmed),
-           let scheme = comps.scheme?.lowercased(),
-           scheme == "prismodns" || scheme == "zanoza" {
-            guard comps.host == "token",
-                  let value = comps.queryItems?.first(where: { $0.name == "value" || $0.name == "token" })?.value,
-                  !value.isEmpty else {
+           let scheme = comps.scheme?.lowercased() {
+            // Deep link: prismodns://token?value=... / zanoza://token?value=...
+            if scheme == "prismodns" || scheme == "zanoza" {
+                guard comps.host == "token",
+                      let value = comps.queryItems?.first(where: { $0.name == "value" || $0.name == "token" })?.value,
+                      !value.isEmpty else {
+                    throw TokenError.invalidLink
+                }
+                return value
+            }
+
+            // Subscription URL: https://<host>/sub/<token>[?...]. Take the path
+            // segment right after the "sub" component.
+            if scheme == "http" || scheme == "https" {
+                let segments = comps.path
+                    .split(separator: "/", omittingEmptySubsequences: true)
+                    .map(String.init)
+                if let subIdx = segments.firstIndex(of: "sub"),
+                   subIdx + 1 < segments.count {
+                    let token = segments[subIdx + 1]
+                    if !token.isEmpty {
+                        return token
+                    }
+                }
+                // Fallback: a plain link to /sub with no trailing token, or some
+                // other http(s) URL we don't recognise.
+                if let last = segments.last, !last.isEmpty, last != "sub" {
+                    return last
+                }
                 throw TokenError.invalidLink
             }
-            return value
+
+            // Any other scheme (ftp://, etc.) is not a valid Prismo token.
+            throw TokenError.invalidLink
         }
 
         // A bare token must not look like some other URL scheme.
