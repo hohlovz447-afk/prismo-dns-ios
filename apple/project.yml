@@ -49,6 +49,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.prismovpn.dns.ios
         PRODUCT_NAME: Prismo DNS
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # sing-box (Singbox.xcframework) calls the libresolv DNS routines
+        # (_res_9_ninit/_nclose/_nsearch), so link libresolv into the app.
+        OTHER_LDFLAGS: -lresolv
 schemes:
   PrismoDNS:
     build:
