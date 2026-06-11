@@ -39,9 +39,6 @@ jobs:
       - name: Build Mobile.xcframework (gomobile bind)
         run: ./apple/Scripts/build-xcframework.sh
 
-      - name: Build Singbox.xcframework (gomobile bind, sing-box)
-        run: ./apple/Scripts/build-singbox-xcframework.sh
-
       - name: Generate Xcode project
         run: ./apple/Scripts/prepare-xcode.sh
 

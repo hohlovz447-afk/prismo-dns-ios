@@ -31,6 +31,52 @@ public enum ResolverListError: LocalizedError {
 public enum ResolverListService {
     public typealias TextFetcher = (URL) throws -> String
 
+    /// Live resolvers discovered by the most recent ``ResolverProbe`` scan,
+    /// fastest-first. When present they are placed at the TOP of the resolver
+    /// list so the tunnel tries known-working resolvers for the user's current
+    /// network before falling back to the rest of the catalog.
+    private static let probedLock = NSLock()
+    private static var probedLiveResolvers: [String] = []
+
+    /// Stores the result of a resolver probe (see ``scanResolvers``).
+    public static func setProbedLiveResolvers(_ resolvers: [String]) {
+        probedLock.lock(); defer { probedLock.unlock() }
+        probedLiveResolvers = resolvers
+    }
+
+    public static func currentProbedLiveResolvers() -> [String] {
+        probedLock.lock(); defer { probedLock.unlock() }
+        return probedLiveResolvers
+    }
+
+    /// Candidate resolvers for the current settings/carrier, before probing.
+    public static func candidates(settings: AppSettings) -> [String] {
+        let catalog = AppConfigService.shared.current()
+        if settings.useFastResolvers {
+            return catalog.fast.isEmpty ? catalog.all : catalog.fast
+        } else if let pinned = catalog.carrier(id: settings.resolverProviderID) {
+            return pinned.resolvers
+        } else {
+            return CarrierDetector.resolvers(from: catalog)
+        }
+    }
+
+    /// Probes the candidate resolvers for the current network and caches the
+    /// live ones (fastest-first) for subsequent ``resolve`` calls. Returns the
+    /// number of live resolvers found. Safe to call before connecting.
+    @discardableResult
+    public static func scanResolvers(settings: AppSettings) async -> Int {
+        guard settings.customResolvers
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return 0  // user pinned manual resolvers; nothing to probe
+        }
+        let candidates = candidates(settings: settings)
+        guard !candidates.isEmpty else { return 0 }
+        let live = await ResolverProbe.probeAll(candidates)
+        setProbedLiveResolvers(live.map(\.resolver))
+        return live.count
+    }
+
     public static func resolve(settings: AppSettings, fetch: TextFetcher? = nil) throws -> String {
         let manual = settings.customResolvers.trimmingCharacters(in: .whitespacesAndNewlines)
         if !manual.isEmpty {
@@ -40,17 +86,14 @@ public enum ResolverListService {
         // Server-driven catalog (no hardcoded DNS, no third-party repo).
         // `AppConfigService.current()` returns cached/bundled data synchronously;
         // a background refresh keeps it up to date for next time.
-        let catalog = AppConfigService.shared.current()
+        var list = candidates(settings: settings)
 
-        let list: [String]
-        if settings.useFastResolvers {
-            list = catalog.fast.isEmpty ? catalog.all : catalog.fast
-        } else if let pinned = catalog.carrier(id: settings.resolverProviderID) {
-            // User explicitly pinned an operator in Settings.
-            list = pinned.resolvers
-        } else {
-            // Auto: detect the active carrier and use its list, else Yandex/all.
-            list = CarrierDetector.resolvers(from: catalog)
+        // Prefer resolvers that a recent probe confirmed are reachable on this
+        // network: put them first (fastest-first), then the rest as fallback.
+        let live = currentProbedLiveResolvers()
+        if !live.isEmpty {
+            let remainder = list.filter { !live.contains($0) }
+            list = live + remainder
         }
 
         let text = list.joined(separator: "\n")

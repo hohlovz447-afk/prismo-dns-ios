@@ -19,17 +19,18 @@ let package = Package(
             name: "Mobile",
             path: "Frameworks/Mobile.xcframework"
         ),
-        // Singbox.xcframework (sing-box / "Speed" mode) is built in CI by
-        // build-singbox-xcframework.sh before SwiftPM resolves.
-        .binaryTarget(
-            name: "Singbox",
-            path: "Frameworks/Singbox.xcframework"
-        ),
+        // NOTE: Singbox.xcframework (sing-box) is currently NOT linked into the
+        // app — "Speed" mode is handed off to the Happ client instead, so the
+        // in-app VLESS engine is unused. The Go module + build-singbox CI job
+        // remain in the repo; to re-enable in-app VLESS (e.g. once a paid
+        // Apple account + Network Extension exist), re-add:
+        //   .binaryTarget(name: "Singbox", path: "Frameworks/Singbox.xcframework"),
+        // and the `.target(name: "Singbox", ...)` dependency below, plus
+        // OTHER_LDFLAGS = -lresolv in project.yml.
         .target(
             name: "ZanozaKit",
             dependencies: [
                 .target(name: "Mobile", condition: .when(platforms: [.iOS])),
-                .target(name: "Singbox", condition: .when(platforms: [.iOS])),
             ],
             resources: [
                 .process("Resources"),

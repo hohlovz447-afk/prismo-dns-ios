@@ -18,16 +18,8 @@ public final class ClientViewModel: ObservableObject {
     /// Last known state of the user's subscription (token + expiry + status).
     @Published public private(set) var subscriptionState: SubscriptionState?
     @Published public private(set) var isCheckingSubscription = false
-    /// Regular VLESS servers from the subscription ("Speed" mode). Shown below
-    /// the "Обход 🐌🐌" tunnel profile. Connecting to these needs the VLESS
-    /// engine (not yet built), so the UI marks them as coming soon.
-    @Published public private(set) var vlessServers: [VlessServer] = []
-    @Published public private(set) var isLoadingVlessServers = false
-    /// Currently connected VLESS server (Speed mode), if any.
-    @Published public private(set) var activeVlessServerID: UUID?
 
     private let engine = TunnelEngine()
-    private let vlessEngine = VlessEngine()
     #if os(iOS)
     private let backgroundRuntimeKeeper = BackgroundRuntimeKeeper()
     #endif
@@ -63,16 +55,20 @@ public final class ClientViewModel: ObservableObject {
         physicalInterfaceMonitor.start()
 
         // Refresh the server-driven config catalog (resolvers per carrier) so
-        // the app never relies on hardcoded DNS data.
-        Task { await AppConfigService.shared.refresh() }
+        // the app never relies on hardcoded DNS data, then probe the resulting
+        // candidates so connecting picks resolvers that actually work on this
+        // user's network (РФ carriers block different ones). Light UDP scan.
+        let settingsSnapshot = settings
+        Task {
+            await AppConfigService.shared.refresh()
+            await ResolverListService.scanResolvers(settings: settingsSnapshot)
+        }
 
         // Silently re-validate the saved subscription on launch so an expired
-        // or revoked token is reflected without the user re-pasting it, and
-        // load the regular VLESS servers for "Speed" mode.
+        // or revoked token is reflected without the user re-pasting it.
         if subscriptionState?.token.isEmpty == false {
             Task {
                 await revalidateSubscription()
-                await loadVlessServers()
             }
         }
     }
@@ -299,9 +295,6 @@ public final class ClientViewModel: ObservableObject {
 
             importErrorMessage = nil
             AppLogger.shared.append("Imported subscription (\(profile.domain)).")
-
-            // Also pull the regular VLESS servers for "Speed" mode.
-            Task { await loadVlessServers() }
             return nil
         } catch {
             let message = error.localizedDescription
@@ -314,54 +307,31 @@ public final class ClientViewModel: ObservableObject {
     public func clearSubscription() {
         subscriptionState = nil
         subscriptionStore.clear()
-        vlessServers = []
     }
 
-    /// Connects to a regular VLESS server ("Speed" mode) via the sing-box
-    /// engine. Stops the DNS tunnel first if it is running.
-    public func connectVless(_ server: VlessServer) {
-        if status.isRunning { stop() }
-        vlessStop()
-
-        let port = settings.socksPort
-        do {
-            try vlessEngine.start(server: server, socksPort: port) { line in
-                Task { @MainActor in AppLogger.shared.append(line) }
-            }
-            activeVlessServerID = server.id
-            status = .ready
-            activeSocksPort = port
-            AppLogger.shared.append("Speed mode connected: \(server.displayName). SOCKS5 127.0.0.1:\(String(port)).")
-        } catch {
-            status = .failed(error.localizedDescription)
-            AppLogger.shared.append("Speed mode failed: \(error.localizedDescription)")
-        }
+    /// The subscription URL (`https://.../sub/{token}`) used for the "Speed"
+    /// mode. Speed servers are VLESS and require a system VPN tunnel (Network
+    /// Extension), which this app does not have, so we hand the subscription
+    /// off to Happ — a full VPN client that supports VLESS — instead of trying
+    /// to run them here.
+    public var speedSubscriptionURL: URL? {
+        guard let token = subscriptionState?.token, !token.isEmpty else { return nil }
+        return VlessSubscriptionService.defaultBaseURL
+            .appendingPathComponent("sub")
+            .appendingPathComponent(token)
     }
 
-    /// Stops the VLESS ("Speed") engine if active.
-    public func vlessStop() {
-        guard activeVlessServerID != nil else { return }
-        vlessEngine.stop()
-        activeVlessServerID = nil
-        if status == .ready { status = .stopped }
-        activeSocksPort = nil
-        AppLogger.shared.append("Speed mode stopped.")
+    /// Deep link that opens Happ and imports the subscription in one tap:
+    /// `happ://add/<raw subscription url>` (Happ expects the URL un-encoded).
+    public var happDeepLink: URL? {
+        guard let sub = speedSubscriptionURL else { return nil }
+        return URL(string: "happ://add/\(sub.absoluteString)")
     }
 
-    /// Loads the regular VLESS servers ("Speed" mode) from the subscription.
-    /// Never throws — failures just leave the list empty.
-    public func loadVlessServers() async {
-        guard let token = subscriptionState?.token, !token.isEmpty else { return }
-        isLoadingVlessServers = true
-        defer { isLoadingVlessServers = false }
-        do {
-            let servers = try await VlessSubscriptionService.fetchServers(token: token)
-            vlessServers = servers
-            AppLogger.shared.append("Loaded \(servers.count) speed-mode server(s).")
-        } catch {
-            // Keep whatever we had; subscription/UA issues shouldn't be fatal.
-            AppLogger.shared.append("Speed-mode servers unavailable: \(error.localizedDescription)")
-        }
+    /// True once we know the user has a subscription token (so the Speed /
+    /// "Open in Happ" action makes sense to show).
+    public var hasSpeedSubscription: Bool {
+        speedSubscriptionURL != nil
     }
 
     public func clearImportError() {
@@ -419,8 +389,6 @@ public final class ClientViewModel: ObservableObject {
     public func start() {
         guard let id = selectedProfileID,
               let profile = profiles.first(where: { $0.id == id }) else { return }
-        // Speed mode and the DNS tunnel are mutually exclusive.
-        vlessStop()
         if let message = validationMessage(for: profile) {
             status = .failed(message)
             AppLogger.shared.append("Cannot start: \(message)")

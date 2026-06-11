@@ -12,8 +12,11 @@
 "Your subscription is expired or inactive." = "Your subscription is expired or inactive.";
 "Unexpected response from the Prismo server." = "Unexpected response from the Prismo server.";
 "Subscription did not contain any servers." = "Subscription did not contain any servers.";
-"Speed servers" = "Speed servers";
-"Direct servers (faster). Pick a country to connect." = "Direct servers (faster). Pick a country to connect.";
+"Speed mode" = "Speed mode";
+"Open in Happ" = "Open in Happ";
+"Fast servers via Happ" = "Fast servers via Happ";
+"Copy subscription link" = "Copy subscription link";
+"Fast direct servers run in the Happ app. Tap to import your subscription there. The \"Обход 🐌🐌\" mode keeps working here in Prismo." = "Fast direct servers run in the Happ app. Tap to import your subscription there. The \"Обход 🐌🐌\" mode keeps working here in Prismo.";
 "Failed to build the server configuration." = "Failed to build the server configuration.";
 "Speed-mode engine is not embedded in the build." = "Speed-mode engine is not embedded in the build.";
 

@@ -12,8 +12,11 @@
 "Your subscription is expired or inactive." = "Ваша подписка истекла или неактивна.";
 "Unexpected response from the Prismo server." = "Неожиданный ответ от сервера Prismo.";
 "Subscription did not contain any servers." = "В подписке нет серверов.";
-"Speed servers" = "Серверы скорости";
-"Direct servers (faster). Pick a country to connect." = "Прямые серверы (быстрее). Выберите страну для подключения.";
+"Speed mode" = "Режим скорости";
+"Open in Happ" = "Открыть в Happ";
+"Fast servers via Happ" = "Быстрые серверы через Happ";
+"Copy subscription link" = "Скопировать ссылку подписки";
+"Fast direct servers run in the Happ app. Tap to import your subscription there. The \"Обход 🐌🐌\" mode keeps working here in Prismo." = "Быстрые прямые серверы работают в приложении Happ. Нажмите, чтобы импортировать подписку туда. Режим «Обход 🐌🐌» продолжает работать здесь, в Prismo.";
 "Failed to build the server configuration." = "Не удалось собрать конфигурацию сервера.";
 "Speed-mode engine is not embedded in the build." = "Движок режима скорости не встроен в сборку.";
 

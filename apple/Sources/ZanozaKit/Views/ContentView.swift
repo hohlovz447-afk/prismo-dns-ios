@@ -279,19 +279,13 @@ private struct ProfilesHomeView: View {
                 }
             }
 
-            if !viewModel.vlessServers.isEmpty {
+            if viewModel.hasSpeedSubscription {
                 Section {
-                    ForEach(viewModel.vlessServers) { server in
-                        VlessServerRow(
-                            server: server,
-                            isActive: viewModel.activeVlessServerID == server.id,
-                            onSelect: { viewModel.connectVless(server) }
-                        )
-                    }
+                    HappSpeedRow(viewModel: viewModel)
                 } header: {
-                    Text(AppLocalization.string("Speed servers"))
+                    Text(AppLocalization.string("Speed mode"))
                 } footer: {
-                    Text(AppLocalization.string("Direct servers (faster). Pick a country to connect."))
+                    Text(AppLocalization.string("Fast direct servers run in the Happ app. Tap to import your subscription there. The \"Обход 🐌🐌\" mode keeps working here in Prismo."))
                 }
             }
         }
@@ -303,34 +297,63 @@ private struct ProfilesHomeView: View {
     }
 }
 
-private struct VlessServerRow: View {
-    let server: VlessServer
-    let isActive: Bool
-    let onSelect: () -> Void
+private struct HappSpeedRow: View {
+    @ObservedObject var viewModel: ClientViewModel
+    @State private var didCopy = false
 
     var body: some View {
-        Button(action: onSelect) {
+        Button(action: openInHapp) {
             HStack(spacing: 12) {
-                Image(systemName: isActive ? "bolt.horizontal.circle.fill" : "bolt.horizontal.circle")
-                    .foregroundStyle(isActive ? Color.green : Color.secondary)
+                Image(systemName: "bolt.horizontal.circle.fill")
+                    .foregroundStyle(.blue)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(server.displayName)
-                        .lineLimit(1)
+                    Text(AppLocalization.string("Open in Happ"))
                         .foregroundStyle(.primary)
-                    Text("\(server.host):\(String(server.port))")
-                        .font(.caption.monospacedDigit())
+                        .lineLimit(1)
+                    Text(AppLocalization.string("Fast servers via Happ"))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                if isActive {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(.green)
-                }
+                Image(systemName: didCopy ? "checkmark" : "arrow.up.forward.app")
+                    .foregroundStyle(didCopy ? .green : .blue)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                copySubscription()
+            } label: {
+                Label(AppLocalization.string("Copy subscription link"), systemImage: "doc.on.doc")
+            }
+        }
+    }
+
+    private func openInHapp() {
+        #if os(iOS)
+        guard let deepLink = viewModel.happDeepLink else { return }
+        UIApplication.shared.open(deepLink, options: [:]) { success in
+            // If Happ isn't installed the deep link can't open; fall back to
+            // copying the subscription URL so the user can paste it manually.
+            if !success { copySubscription() }
+        }
+        #else
+        copySubscription()
+        #endif
+    }
+
+    private func copySubscription() {
+        guard let url = viewModel.speedSubscriptionURL else { return }
+        #if os(iOS)
+        UIPasteboard.general.string = url.absoluteString
+        #elseif os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+        #endif
+        didCopy = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { didCopy = false }
     }
 }
 
