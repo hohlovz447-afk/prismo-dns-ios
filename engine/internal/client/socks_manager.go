@@ -119,8 +119,15 @@ func (c *Client) handleSOCKS5Request(ctx context.Context, conn net.Conn) {
 			methodSelected = SOCKS5_AUTH_METHOD_USER_PASS
 		}
 	} else {
+		// Auth disabled: prefer no-auth, but also accept the user/pass method
+		// (with any credentials) so clients that only advertise user/pass —
+		// e.g. Happ/Xray configured with a SOCKS account — still connect. The
+		// local listener is loopback by default, so accepting an unvalidated
+		// user/pass handshake here is not a security regression.
 		if slices.Contains(methods, SOCKS5_AUTH_METHOD_NO_AUTH) {
 			methodSelected = SOCKS5_AUTH_METHOD_NO_AUTH
+		} else if slices.Contains(methods, SOCKS5_AUTH_METHOD_USER_PASS) {
+			methodSelected = SOCKS5_AUTH_METHOD_USER_PASS
 		}
 	}
 
@@ -160,24 +167,26 @@ func (c *Client) handleSOCKS5Request(ctx context.Context, conn net.Conn) {
 			return
 		}
 
-		if string(user) != c.cfg.SOCKS5User || string(pass) != c.cfg.SOCKS5Pass {
-			_, _ = conn.Write([]byte{SOCKS5_USER_AUTH_VERSION, SOCKS5_USER_AUTH_FAILURE})
-			ip := extractIP(conn)
-			banned := false
-			if c.socksRateLimit != nil {
-				banned = c.socksRateLimit.RecordFailure(ip)
+		if c.cfg.SOCKS5Auth {
+			if string(user) != c.cfg.SOCKS5User || string(pass) != c.cfg.SOCKS5Pass {
+				_, _ = conn.Write([]byte{SOCKS5_USER_AUTH_VERSION, SOCKS5_USER_AUTH_FAILURE})
+				ip := extractIP(conn)
+				banned := false
+				if c.socksRateLimit != nil {
+					banned = c.socksRateLimit.RecordFailure(ip)
+				}
+				if banned {
+					c.log.Warnf("🔒 <red>SOCKS5 brute-force detected from <cyan>%s</cyan>, IP temporarily banned</red>", ip)
+				} else {
+					c.log.Warnf("🔒 <yellow>SOCKS5 Authentication failed for user: <cyan>%s</cyan> from <cyan>%s</cyan></yellow>", string(user), ip)
+				}
+				_ = conn.Close()
+				return
 			}
-			if banned {
-				c.log.Warnf("🔒 <red>SOCKS5 brute-force detected from <cyan>%s</cyan>, IP temporarily banned</red>", ip)
-			} else {
-				c.log.Warnf("🔒 <yellow>SOCKS5 Authentication failed for user: <cyan>%s</cyan> from <cyan>%s</cyan></yellow>", string(user), ip)
-			}
-			_ = conn.Close()
-			return
-		}
 
-		if c.socksRateLimit != nil {
-			c.socksRateLimit.RecordSuccess(extractIP(conn))
+			if c.socksRateLimit != nil {
+				c.socksRateLimit.RecordSuccess(extractIP(conn))
+			}
 		}
 
 		_, _ = conn.Write([]byte{SOCKS5_USER_AUTH_VERSION, SOCKS5_USER_AUTH_SUCCESS})
