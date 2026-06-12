@@ -330,22 +330,19 @@ public final class ClientViewModel: ObservableObject {
 
     /// The `socks://` config that points Happ at Prismo's local DNS-tunnel
     /// proxy. Uses Happ's documented "Partial Base64" SOCKS5 format
-    /// (`socks://<base64(user:pass)>@host:port#name`) — Happ's parser rejects a
-    /// bare `socks://host:port` without the base64 userinfo segment.
+    /// (`socks://<base64(user:pass)>@host:port#name`).
     ///
-    /// When Prismo's SOCKS auth is disabled the userinfo is the empty pair
-    /// (`":"` → `Og==`), which Happ/Xray treats as no-auth, matching the local
-    /// listener (it only accepts the no-auth method when auth is off).
+    /// Happ rejects an empty credential pair (e.g. base64 of ":"), so we always
+    /// embed a non-empty `user:pass`. When Prismo's SOCKS auth is disabled the
+    /// local listener accepts any credentials over loopback, so these are just
+    /// placeholders; when it's enabled they are the configured credentials and
+    /// must match.
     public var happProxyURI: String {
         let host = "127.0.0.1"
         let port = localProxyPort
-        let userPass: String
-        if settings.socksAuthEnabled, !settings.socksUser.isEmpty {
-            userPass = "\(settings.socksUser):\(settings.socksPass)"
-        } else {
-            userPass = ":"
-        }
-        let creds = Data(userPass.utf8).base64EncodedString()
+        let user = settings.socksUser.isEmpty ? "prismo" : settings.socksUser
+        let pass = settings.socksPass.isEmpty ? "prismo" : settings.socksPass
+        let creds = Data("\(user):\(pass)".utf8).base64EncodedString()
         return "socks://\(creds)@\(host):\(port)#Prismo"
     }
 
