@@ -49,23 +49,19 @@ public enum ResolverListService {
         return probedLiveResolvers
     }
 
-    /// Candidate pool fed to the engine (carrier-first wide union, ≤60). The
-    /// engine MTU-tests/auto-disables and balances across the survivors.
+    /// Curated, tunnel-capable resolver set fed to the engine.
+    ///
+    /// Deliberately does NOT include the large raw `all`/`pool` list: most of
+    /// those answer plain DNS but do not reliably TUNNEL on a given mobile
+    /// network, so feeding them makes the balancer waste packets on dead paths
+    /// (high latency/jitter, low throughput). We use the RU carrier + Yandex
+    /// resolvers, which forward correctly. The raw pool is only a calibration
+    /// candidate source.
     public static func candidates(settings: AppSettings) -> [String] {
-        wideUnion(settings: settings, limit: 60)
-    }
-
-    /// Larger pool used only for PROBING. The engine still receives just the
-    /// working subset that the probe keeps.
-    public static func fullPool(settings: AppSettings) -> [String] {
-        wideUnion(settings: settings, limit: 200)
-    }
-
-    private static func wideUnion(settings: AppSettings, limit: Int) -> [String] {
         let catalog = AppConfigService.shared.current()
         if settings.useFastResolvers {
-            let base = catalog.fast.isEmpty ? catalog.all : catalog.fast
-            return Array(uniqueOrdered(base).prefix(limit))
+            let base = catalog.fast.isEmpty ? catalog.yandex : catalog.fast
+            return Array(uniqueOrdered(base).prefix(40))
         }
 
         var ordered: [String] = []
@@ -77,11 +73,10 @@ public enum ResolverListService {
         }
         ordered += catalog.yandex
         for carrier in catalog.carriers { ordered += carrier.resolvers }
-        ordered += catalog.all
 
-        let wide = uniqueOrdered(ordered)
-        let pool = wide.isEmpty ? uniqueOrdered(catalog.all) : wide
-        return Array(pool.prefix(limit))
+        let curated = uniqueOrdered(ordered)
+        let base = curated.isEmpty ? uniqueOrdered(catalog.yandex) : curated
+        return Array(base.prefix(40))
     }
 
     private static func uniqueOrdered(_ items: [String]) -> [String] {
@@ -105,11 +100,11 @@ public enum ResolverListService {
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return 0  // user pinned manual resolvers; nothing to probe
         }
-        let pool = fullPool(settings: settings)
+        let pool = candidates(settings: settings)
         guard !pool.isEmpty else { return 0 }
         let live = await ResolverProbe.probeAll(pool)
-        // Keep the best ~60 reachable resolvers (fastest-first) for the engine.
-        let ranked = Array(live.map(\.resolver).prefix(60))
+        // Keep the reachable curated resolvers (fastest-first) for the engine.
+        let ranked = Array(live.map(\.resolver).prefix(40))
         guard !ranked.isEmpty else { return 0 }
         setProbedLiveResolvers(ranked)
         // Persist this working set for the current network so a reconnect

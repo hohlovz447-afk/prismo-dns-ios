@@ -27,7 +27,7 @@ public final class ResolverHealthStore {
         let fm = FileManager.default
         let dir = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        fileURL = dir.appendingPathComponent("resolver-health.json")
+        fileURL = dir.appendingPathComponent("resolver-health-v2.json")
         if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) {
             cache = decoded
