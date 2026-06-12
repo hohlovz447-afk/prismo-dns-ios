@@ -139,6 +139,9 @@ public struct ContentView: View {
                     settings: $viewModel.settings,
                     physicalInterfaceMonitor: viewModel.physicalInterfaceMonitor,
                     isTunnelRunning: viewModel.status.isRunning,
+                    isCalibrating: viewModel.isCalibrating,
+                    calibrationStatus: viewModel.calibrationStatus,
+                    onCalibrate: viewModel.calibrateResolvers,
                     onCommit: viewModel.saveSettings
                 )
                 .navigationTitle(AppLocalization.string("Settings"))

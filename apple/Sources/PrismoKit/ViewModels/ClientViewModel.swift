@@ -18,6 +18,9 @@ public final class ClientViewModel: ObservableObject {
     /// Last known state of the user's subscription (token + expiry + status).
     @Published public private(set) var subscriptionState: SubscriptionState?
     @Published public private(set) var isCheckingSubscription = false
+    /// On-device resolver speed calibration progress/result text (nil when idle).
+    @Published public private(set) var isCalibrating = false
+    @Published public private(set) var calibrationStatus: String?
 
     private let engine = TunnelEngine()
     #if os(iOS)
@@ -522,6 +525,76 @@ public final class ClientViewModel: ObservableObject {
                 AppLogger.shared.append("Tunnel stopped.")
             }
         }
+    }
+
+    // MARK: - On-device resolver speed calibration
+
+    /// Measures real download speed for each candidate resolver on the user's
+    /// actual network (sequentially, single-resolver), then pins the fastest
+    /// ones as the manual resolver list. Runs only while the tunnel is stopped.
+    public func calibrateResolvers() {
+        guard !isCalibrating, !status.isRunning else { return }
+        guard let id = selectedProfileID,
+              let profile = profiles.first(where: { $0.id == id }),
+              validationMessage(for: profile) == nil else {
+            calibrationStatus = AppLocalization.string("Select a valid profile first.")
+            return
+        }
+
+        let baseSettings = settings
+        var calibSettings = baseSettings
+        calibSettings.socksPort = ResolverCalibrator.calibrationPort
+        calibSettings.socksAuthEnabled = false
+        calibSettings.customResolvers = ""
+        let configTOML = ConfigBuilder.buildTOML(for: profile, settings: calibSettings)
+
+        let candidates = ResolverListService.candidates(settings: baseSettings)
+        guard !candidates.isEmpty else {
+            calibrationStatus = AppLocalization.string("No resolvers to test.")
+            return
+        }
+
+        let runtimeDir = runtimeDirectory(for: profile).appendingPathComponent("calib", isDirectory: true)
+        let boundInterface = physicalInterfaceMonitor.currentName
+        let boundIPv4 = physicalInterfaceMonitor.currentIPv4
+        let boundIPv6 = physicalInterfaceMonitor.currentIPv6
+
+        isCalibrating = true
+        calibrationStatus = AppLocalization.format("Testing resolvers… %d / %d", 0, candidates.count)
+        AppLogger.shared.append("Resolver calibration started (\(candidates.count) candidates).")
+
+        Task { [weak self] in
+            let samples = await ResolverCalibrator.calibrate(
+                configTOML: configTOML,
+                candidates: candidates,
+                runtimeDirectory: runtimeDir,
+                boundInterface: boundInterface,
+                boundIPv4: boundIPv4,
+                boundIPv6: boundIPv6,
+                progress: { done, total, _ in
+                    Task { @MainActor in
+                        self?.calibrationStatus = AppLocalization.format("Testing resolvers… %d / %d", done, total)
+                    }
+                }
+            )
+            await MainActor.run { self?.finishCalibration(samples: samples) }
+        }
+    }
+
+    private func finishCalibration(samples: [ResolverCalibrator.Sample]) {
+        isCalibrating = false
+        let alive = samples.filter { $0.bytesPerSec > 0 }
+        guard !alive.isEmpty else {
+            calibrationStatus = AppLocalization.string("No working resolvers found. Try again or check your connection.")
+            AppLogger.shared.append("Resolver calibration: no working resolvers found.")
+            return
+        }
+        let top = Array(alive.prefix(6))
+        settings.customResolvers = top.map(\.resolver).joined(separator: "\n")
+        saveSettings()
+        let bestMbps = top[0].kbitsPerSec / 1000.0
+        calibrationStatus = AppLocalization.format("Selected %d fastest (best %.1f Mbit/s).", top.count, bestMbps)
+        AppLogger.shared.append("Resolver calibration done: kept \(top.count), best \(String(format: "%.1f", bestMbps)) Mbit/s.")
     }
 
     private func startCompletionAction(for token: UInt64) -> StartCompletionAction {

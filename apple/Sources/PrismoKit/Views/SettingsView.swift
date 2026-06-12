@@ -4,17 +4,26 @@ public struct SettingsView: View {
     @Binding var settings: AppSettings
     @ObservedObject var physicalInterfaceMonitor: PhysicalInterfaceMonitor
     let isTunnelRunning: Bool
+    let isCalibrating: Bool
+    let calibrationStatus: String?
+    let onCalibrate: () -> Void
     let onCommit: () -> Void
 
     public init(
         settings: Binding<AppSettings>,
         physicalInterfaceMonitor: PhysicalInterfaceMonitor,
         isTunnelRunning: Bool,
+        isCalibrating: Bool,
+        calibrationStatus: String?,
+        onCalibrate: @escaping () -> Void,
         onCommit: @escaping () -> Void
     ) {
         _settings = settings
         self.physicalInterfaceMonitor = physicalInterfaceMonitor
         self.isTunnelRunning = isTunnelRunning
+        self.isCalibrating = isCalibrating
+        self.calibrationStatus = calibrationStatus
+        self.onCalibrate = onCalibrate
         self.onCommit = onCommit
     }
 
@@ -71,6 +80,26 @@ public struct SettingsView: View {
                 ResolversTextEditor(text: $settings.customResolvers)
             } footer: {
                 Text(AppLocalization.string("One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list."))
+            }
+
+            Section {
+                Button(action: onCalibrate) {
+                    HStack {
+                        Label(AppLocalization.string("Find fastest resolvers"), systemImage: "speedometer")
+                        Spacer()
+                        if isCalibrating { ProgressView() }
+                    }
+                }
+                .disabled(isCalibrating || isTunnelRunning)
+                if let calibrationStatus {
+                    Text(calibrationStatus)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } header: {
+                Text(AppLocalization.string("Resolver speed"))
+            } footer: {
+                Text(AppLocalization.string("Measures the real download speed of each resolver on your current network and keeps the fastest. Run while disconnected."))
             }
 
             Section {

@@ -88,6 +88,14 @@
 "Connection may be unstable! Do not use when mobile network restrictions apply!" = "Connection may be unstable! Do not use when mobile network restrictions apply!";
 "One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list." = "One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list.";
 "Changes apply after reconnecting." = "Changes apply after reconnecting.";
+"Resolver speed" = "Resolver speed";
+"Find fastest resolvers" = "Find fastest resolvers";
+"Measures the real download speed of each resolver on your current network and keeps the fastest. Run while disconnected." = "Measures the real download speed of each resolver on your current network and keeps the fastest. Run while disconnected.";
+"Testing resolvers… %d / %d" = "Testing resolvers… %d / %d";
+"Selected %d fastest (best %.1f Mbit/s)." = "Selected %d fastest (best %.1f Mbit/s).";
+"No working resolvers found. Try again or check your connection." = "No working resolvers found. Try again or check your connection.";
+"No resolvers to test." = "No resolvers to test.";
+"Select a valid profile first." = "Select a valid profile first.";
 
 "Import profile" = "Import profile";
 "Import from clipboard" = "Import from clipboard";

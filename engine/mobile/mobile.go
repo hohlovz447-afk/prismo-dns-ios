@@ -67,6 +67,7 @@ var (
 	runningWG  sync.WaitGroup
 	stdoutPump *stdoutInterceptor
 	writerRef  LogWriter
+	activeClient *client.Client
 )
 
 // SetLogWriter installs a writer that will receive both stdout lines emitted
@@ -139,6 +140,7 @@ func Start(configTOML, resolversText, runtimeDir string) error {
 	mu.Lock()
 	cancelFn = cancel
 	stdoutPump = pump
+	activeClient = app
 	mu.Unlock()
 
 	runningWG.Add(1)
@@ -183,6 +185,7 @@ func Stop() {
 	pump := stdoutPump
 	cancelFn = nil
 	stdoutPump = nil
+	activeClient = nil
 	mu.Unlock()
 
 	if cancel == nil {

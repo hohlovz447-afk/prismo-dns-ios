@@ -88,6 +88,14 @@
 "Connection may be unstable! Do not use when mobile network restrictions apply!" = "Подключение может быть нестабильным! Не использовать при ограничениях мобильной связи!";
 "One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list." = "Один резолвер в строке. Ручные записи перезаписывают выбранного провайдера или серверы без ограничения скорости. Оставьте поле пустым, чтобы использовать выбранный удалённый список.";
 "Changes apply after reconnecting." = "Изменения применятся после переподключения.";
+"Resolver speed" = "Скорость резолверов";
+"Find fastest resolvers" = "Подобрать самые быстрые резолверы";
+"Measures the real download speed of each resolver on your current network and keeps the fastest. Run while disconnected." = "Измеряет реальную скорость загрузки каждого резолвера в вашей текущей сети и оставляет самые быстрые. Запускайте при отключённом туннеле.";
+"Testing resolvers… %d / %d" = "Проверка резолверов… %d / %d";
+"Selected %d fastest (best %.1f Mbit/s)." = "Отобрано %d самых быстрых (лучший %.1f Мбит/с).";
+"No working resolvers found. Try again or check your connection." = "Рабочих резолверов не найдено. Повторите или проверьте соединение.";
+"No resolvers to test." = "Нет резолверов для проверки.";
+"Select a valid profile first." = "Сначала выберите корректный профиль.";
 
 "Import profile" = "Импорт профиля";
 "Import from clipboard" = "Импорт из буфера";
