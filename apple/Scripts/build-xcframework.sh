@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APPLE_DIR="$ROOT_DIR/apple"
-GO_DIR="$ROOT_DIR/masterdns"
+GO_DIR="$ROOT_DIR/engine"
 OUT_DIR="$APPLE_DIR/Frameworks"
 OUT="$OUT_DIR/Mobile.xcframework"
 

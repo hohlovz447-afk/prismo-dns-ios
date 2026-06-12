@@ -8,7 +8,7 @@ Master 1024×1024 icon:
   - light brush-edge speckle so the stroke does not read as a solid blob
 
 Renders into every iOS AppIcon slot declared in
-Sources/ZanozaApp/Assets.xcassets/AppIcon.appiconset/Contents.json.
+Sources/PrismoApp/Assets.xcassets/AppIcon.appiconset/Contents.json.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
 HERE = Path(__file__).resolve().parent
-APPICON_DIR = (HERE / "../Sources/ZanozaApp/Assets.xcassets/AppIcon.appiconset").resolve()
+APPICON_DIR = (HERE / "../Sources/PrismoApp/Assets.xcassets/AppIcon.appiconset").resolve()
 
 MASTER = 1024
 

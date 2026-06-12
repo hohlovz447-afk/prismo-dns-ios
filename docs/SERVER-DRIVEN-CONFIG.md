@@ -13,7 +13,7 @@
 | Резолверы по операторам + fast/yandex | бэкенд | `GET /api/app-config` |
 | Список операторов в Settings | из `/api/app-config` | — |
 
-Зашитого больше нет. Удалена зависимость от `hub.mos.ru/pete9/zanoza`.
+Зашитого больше нет. Удалена зависимость от `hub.mos.ru/pete9/prismo`.
 
 ## Бэкенд: `/api/app-config`
 
