@@ -584,17 +584,24 @@ public final class ClientViewModel: ObservableObject {
     private func finishCalibration(samples: [ResolverCalibrator.Sample]) {
         isCalibrating = false
         let alive = samples.filter { $0.bytesPerSec > 0 }
-        guard !alive.isEmpty else {
-            calibrationStatus = AppLocalization.string("No working resolvers found. Try again or check your connection.")
-            AppLogger.shared.append("Resolver calibration: no working resolvers found.")
+        // A wide parallel channel needs several working resolvers. If too few
+        // passed, keep the full wide pool rather than narrowing — one resolver
+        // caps throughput low and kills the balancer's parallelism.
+        guard alive.count >= 3 else {
+            calibrationStatus = AppLocalization.format(
+                "Only %d resolver(s) passed — keeping the full pool. Add more resolvers for higher speed.",
+                alive.count
+            )
+            AppLogger.shared.append("Resolver calibration: only \(alive.count) passed; keeping wide pool.")
             return
         }
-        let top = Array(alive.prefix(6))
-        settings.customResolvers = top.map(\.resolver).joined(separator: "\n")
+        // Keep ALL working resolvers, fastest-first, so the engine balances
+        // across them in parallel (wider channel, dodges per-resolver limits).
+        settings.customResolvers = alive.map(\.resolver).joined(separator: "\n")
         saveSettings()
-        let bestMbps = top[0].kbitsPerSec / 1000.0
-        calibrationStatus = AppLocalization.format("Selected %d fastest (best %.1f Mbit/s).", top.count, bestMbps)
-        AppLogger.shared.append("Resolver calibration done: kept \(top.count), best \(String(format: "%.1f", bestMbps)) Mbit/s.")
+        let bestMbps = alive[0].kbitsPerSec / 1000.0
+        calibrationStatus = AppLocalization.format("Kept %d fastest resolvers (best %.1f Mbit/s).", alive.count, bestMbps)
+        AppLogger.shared.append("Resolver calibration done: kept \(alive.count), best \(String(format: "%.1f", bestMbps)) Mbit/s.")
     }
 
     private func startCompletionAction(for token: UInt64) -> StartCompletionAction {

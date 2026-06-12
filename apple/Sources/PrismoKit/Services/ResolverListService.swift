@@ -50,15 +50,43 @@ public enum ResolverListService {
     }
 
     /// Candidate resolvers for the current settings/carrier, before probing.
+    ///
+    /// Returns a WIDE pool (carrier-specific first, then the full catalog union)
+    /// rather than a single operator's handful. The engine MTU-tests these at
+    /// startup, auto-disables timing-out ones during use, and balances across
+    /// the survivors in parallel — so a wide pool is a wider, self-cleaning
+    /// channel. Capped at 60 to keep startup MTU testing reasonable.
     public static func candidates(settings: AppSettings) -> [String] {
         let catalog = AppConfigService.shared.current()
         if settings.useFastResolvers {
-            return catalog.fast.isEmpty ? catalog.all : catalog.fast
-        } else if let pinned = catalog.carrier(id: settings.resolverProviderID) {
-            return pinned.resolvers
-        } else {
-            return CarrierDetector.resolvers(from: catalog)
+            return uniqueOrdered(catalog.fast.isEmpty ? catalog.all : catalog.fast)
         }
+
+        var ordered: [String] = []
+        if let pinned = catalog.carrier(id: settings.resolverProviderID) {
+            ordered += pinned.resolvers
+        } else if let plmn = CarrierDetector.currentPLMN(),
+                  let carrier = catalog.carrier(forPLMN: plmn) {
+            ordered += carrier.resolvers
+        }
+        ordered += catalog.yandex
+        for carrier in catalog.carriers { ordered += carrier.resolvers }
+        ordered += catalog.all
+
+        let wide = uniqueOrdered(ordered)
+        return wide.isEmpty ? uniqueOrdered(catalog.all) : Array(wide.prefix(60))
+    }
+
+    private static func uniqueOrdered(_ items: [String]) -> [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for raw in items {
+            let ip = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if ip.isEmpty || seen.contains(ip) { continue }
+            seen.insert(ip)
+            out.append(ip)
+        }
+        return out
     }
 
     /// Probes the candidate resolvers for the current network and caches the
