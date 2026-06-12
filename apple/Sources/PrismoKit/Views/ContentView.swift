@@ -324,7 +324,7 @@ private struct HappSpeedRow: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button {
-                copySubscription()
+                copyProxyLink()
             } label: {
                 Label(AppLocalization.string("Copy proxy link"), systemImage: "doc.on.doc")
             }
@@ -332,19 +332,30 @@ private struct HappSpeedRow: View {
     }
 
     private func openInHapp() {
+        // Copy the proxy link to the clipboard FIRST. Happ auto-recognises a
+        // config link from the clipboard on launch, and different Happ versions
+        // handle the `happ://add/<raw-config>` deep link inconsistently (the
+        // scheme was originally meant for http(s) subscription URLs). The
+        // clipboard path is the most reliable, and also leaves the link ready
+        // for a manual paste if needed.
+        copyProxyLink(showFeedback: false)
+
         #if os(iOS)
-        guard let deepLink = viewModel.happDeepLink else { return }
+        guard let deepLink = viewModel.happDeepLink else {
+            copyProxyLink(showFeedback: true)
+            return
+        }
         UIApplication.shared.open(deepLink, options: [:]) { success in
-            // If Happ isn't installed the deep link can't open; fall back to
-            // copying the proxy link so the user can paste it manually.
-            if !success { copySubscription() }
+            // If Happ isn't installed the deep link can't open; surface the
+            // copy feedback so the user knows the link is on the clipboard.
+            if !success { copyProxyLink(showFeedback: true) }
         }
         #else
-        copySubscription()
+        copyProxyLink(showFeedback: true)
         #endif
     }
 
-    private func copySubscription() {
+    private func copyProxyLink(showFeedback: Bool = true) {
         let proxyLink = viewModel.happProxyURI
         #if os(iOS)
         UIPasteboard.general.string = proxyLink
@@ -352,6 +363,7 @@ private struct HappSpeedRow: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(proxyLink, forType: .string)
         #endif
+        guard showFeedback else { return }
         didCopy = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { didCopy = false }
     }
