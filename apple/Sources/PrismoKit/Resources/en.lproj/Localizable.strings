@@ -81,6 +81,9 @@
 "Resolvers" = "Resolvers";
 "Provider selection" = "Provider selection";
 "No provider" = "No provider";
+"Automatic (by carrier)" = "Automatic (by carrier)";
+"Automatic mode detects your mobile carrier and picks its resolvers." = "Automatic mode detects your mobile carrier and picks its resolvers.";
+"Automatic mode uses the resolvers of your detected carrier: %@." = "Automatic mode uses the resolvers of your detected carrier: %@.";
 "Use speed-unrestricted servers" = "Use speed-unrestricted servers";
 "Connection may be unstable! Do not use when mobile network restrictions apply!" = "Connection may be unstable! Do not use when mobile network restrictions apply!";
 "One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list." = "One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list.";

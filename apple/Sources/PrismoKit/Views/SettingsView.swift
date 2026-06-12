@@ -56,6 +56,8 @@ public struct SettingsView: View {
                 )
             } header: {
                 Text(AppLocalization.string("DNS resolvers"))
+            } footer: {
+                Text(resolverFooterText)
             }
 
             Section {
@@ -128,6 +130,13 @@ public struct SettingsView: View {
         .onDisappear(perform: onCommit)
     }
 
+    private var resolverFooterText: String {
+        if let name = CarrierDetector.carrierName(from: AppConfigService.shared.current()) {
+            return AppLocalization.format("Automatic mode uses the resolvers of your detected carrier: %@.", name)
+        }
+        return AppLocalization.string("Automatic mode detects your mobile carrier and picks its resolvers.")
+    }
+
     private var appVersionDisplay: String {
         let info = Bundle.main.infoDictionary
         let marketing = info?["CFBundleShortVersionString"] as? String
@@ -180,7 +189,7 @@ private struct ResolverProviderPicker: View {
 
     var body: some View {
         Picker(AppLocalization.string("Provider selection"), selection: normalizedSelection) {
-            Text(AppLocalization.string("No provider"))
+            Text(AppLocalization.string("Automatic (by carrier)"))
                 .tag(AppSettings.noResolverProviderID)
             ForEach(ResolverCatalog.providers) { provider in
                 Text(provider.displayName)

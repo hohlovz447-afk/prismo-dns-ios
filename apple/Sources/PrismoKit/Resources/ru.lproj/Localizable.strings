@@ -81,6 +81,9 @@
 "Resolvers" = "Резолверы";
 "Provider selection" = "Выбор провайдера";
 "No provider" = "Провайдер не выбран";
+"Automatic (by carrier)" = "Авто (по оператору)";
+"Automatic mode detects your mobile carrier and picks its resolvers." = "В авторежиме приложение определяет вашего оператора и подбирает его резолверы.";
+"Automatic mode uses the resolvers of your detected carrier: %@." = "Авторежим использует резолверы определённого оператора: %@.";
 "Use speed-unrestricted servers" = "Использовать серверы без ограничения скорости";
 "Connection may be unstable! Do not use when mobile network restrictions apply!" = "Подключение может быть нестабильным! Не использовать при ограничениях мобильной связи!";
 "One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list." = "Один резолвер в строке. Ручные записи перезаписывают выбранного провайдера или серверы без ограничения скорости. Оставьте поле пустым, чтобы использовать выбранный удалённый список.";
