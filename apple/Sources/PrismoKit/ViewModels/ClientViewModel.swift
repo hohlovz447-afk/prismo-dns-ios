@@ -321,17 +321,41 @@ public final class ClientViewModel: ObservableObject {
             .appendingPathComponent(token)
     }
 
-    /// Deep link that opens Happ and imports the subscription in one tap:
-    /// `happ://add/<raw subscription url>` (Happ expects the URL un-encoded).
-    public var happDeepLink: URL? {
-        guard let sub = speedSubscriptionURL else { return nil }
-        return URL(string: "happ://add/\(sub.absoluteString)")
+    /// Local SOCKS5 port the DNS tunnel is — or will be — listening on.
+    /// Uses the live port while the tunnel is running, otherwise the configured
+    /// one, so the Happ proxy always matches the app's current setting.
+    public var localProxyPort: Int {
+        activeSocksPort ?? settings.socksPort
     }
 
-    /// True once we know the user has a subscription token (so the Speed /
-    /// "Open in Happ" action makes sense to show).
-    public var hasSpeedSubscription: Bool {
-        speedSubscriptionURL != nil
+    /// The `socks://` config that points Happ at Prismo's local DNS-tunnel
+    /// proxy. Follows Happ's documented SOCKS5 import grammar:
+    ///   - no auth:   `socks://127.0.0.1:<port>#Prismo`
+    ///   - with auth: `socks://<base64(user:pass)>@127.0.0.1:<port>#Prismo`
+    public var happProxyURI: String {
+        let host = "127.0.0.1"
+        let port = localProxyPort
+        let tag = "Prismo%20DNS"
+        if settings.socksAuthEnabled, !settings.socksUser.isEmpty {
+            let creds = Data("\(settings.socksUser):\(settings.socksPass)".utf8)
+                .base64EncodedString()
+            return "socks://\(creds)@\(host):\(port)#\(tag)"
+        }
+        return "socks://\(host):\(port)#\(tag)"
+    }
+
+    /// Deep link that opens Happ and adds Prismo's local SOCKS5 proxy in one
+    /// tap, so Happ routes all system traffic through the running DNS tunnel.
+    /// Happ expects the inner config un-encoded, mirroring its other add links.
+    public var happDeepLink: URL? {
+        URL(string: "happ://add/\(happProxyURI)")
+    }
+
+    /// True once there is a profile to bridge — Prismo only routes system-wide
+    /// traffic through an external client (Happ), so the action is shown
+    /// whenever the user has at least one profile configured.
+    public var canBridgeToHapp: Bool {
+        !profiles.isEmpty
     }
 
     public func clearImportError() {

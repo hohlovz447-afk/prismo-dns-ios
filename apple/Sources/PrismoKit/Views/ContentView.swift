@@ -279,13 +279,13 @@ private struct ProfilesHomeView: View {
                 }
             }
 
-            if viewModel.hasSpeedSubscription {
+            if viewModel.canBridgeToHapp {
                 Section {
                     HappSpeedRow(viewModel: viewModel)
                 } header: {
-                    Text(AppLocalization.string("Speed mode"))
+                    Text(AppLocalization.string("Route through Happ"))
                 } footer: {
-                    Text(AppLocalization.string("Fast direct servers run in the Happ app. Tap to import your subscription there. The \"Обход 🐌🐌\" mode keeps working here in Prismo."))
+                    Text(AppLocalization.string("Prismo runs a local SOCKS5 proxy; Happ routes your system traffic through it. Start the tunnel here, then tap to add the proxy to Happ."))
                 }
             }
         }
@@ -310,7 +310,7 @@ private struct HappSpeedRow: View {
                     Text(AppLocalization.string("Open in Happ"))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    Text(AppLocalization.string("Fast servers via Happ"))
+                    Text(AppLocalization.string("Route traffic through Prismo"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -326,7 +326,7 @@ private struct HappSpeedRow: View {
             Button {
                 copySubscription()
             } label: {
-                Label(AppLocalization.string("Copy subscription link"), systemImage: "doc.on.doc")
+                Label(AppLocalization.string("Copy proxy link"), systemImage: "doc.on.doc")
             }
         }
     }
@@ -336,7 +336,7 @@ private struct HappSpeedRow: View {
         guard let deepLink = viewModel.happDeepLink else { return }
         UIApplication.shared.open(deepLink, options: [:]) { success in
             // If Happ isn't installed the deep link can't open; fall back to
-            // copying the subscription URL so the user can paste it manually.
+            // copying the proxy link so the user can paste it manually.
             if !success { copySubscription() }
         }
         #else
@@ -345,12 +345,12 @@ private struct HappSpeedRow: View {
     }
 
     private func copySubscription() {
-        guard let url = viewModel.speedSubscriptionURL else { return }
+        let proxyLink = viewModel.happProxyURI
         #if os(iOS)
-        UIPasteboard.general.string = url.absoluteString
+        UIPasteboard.general.string = proxyLink
         #elseif os(macOS)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+        NSPasteboard.general.setString(proxyLink, forType: .string)
         #endif
         didCopy = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { didCopy = false }

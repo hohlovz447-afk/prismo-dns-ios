@@ -12,11 +12,11 @@
 "Your subscription is expired or inactive." = "Ваша подписка истекла или неактивна.";
 "Unexpected response from the Prismo server." = "Неожиданный ответ от сервера Prismo.";
 "Subscription did not contain any servers." = "В подписке нет серверов.";
-"Speed mode" = "Режим скорости";
+"Route through Happ" = "Через Happ";
 "Open in Happ" = "Открыть в Happ";
-"Fast servers via Happ" = "Быстрые серверы через Happ";
-"Copy subscription link" = "Скопировать ссылку подписки";
-"Fast direct servers run in the Happ app. Tap to import your subscription there. The \"Обход 🐌🐌\" mode keeps working here in Prismo." = "Быстрые прямые серверы работают в приложении Happ. Нажмите, чтобы импортировать подписку туда. Режим «Обход 🐌🐌» продолжает работать здесь, в Prismo.";
+"Route traffic through Prismo" = "Направить трафик через Prismo";
+"Copy proxy link" = "Скопировать ссылку прокси";
+"Prismo runs a local SOCKS5 proxy; Happ routes your system traffic through it. Start the tunnel here, then tap to add the proxy to Happ." = "Prismo поднимает локальный SOCKS5-прокси, а Happ направляет через него весь системный трафик. Запустите туннель здесь, затем нажмите, чтобы добавить прокси в Happ.";
 "Failed to build the server configuration." = "Не удалось собрать конфигурацию сервера.";
 "Speed-mode engine is not embedded in the build." = "Движок режима скорости не встроен в сборку.";
 
