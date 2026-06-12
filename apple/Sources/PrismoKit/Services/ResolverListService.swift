@@ -49,17 +49,23 @@ public enum ResolverListService {
         return probedLiveResolvers
     }
 
-    /// Candidate resolvers for the current settings/carrier, before probing.
-    ///
-    /// Returns a WIDE pool (carrier-specific first, then the full catalog union)
-    /// rather than a single operator's handful. The engine MTU-tests these at
-    /// startup, auto-disables timing-out ones during use, and balances across
-    /// the survivors in parallel — so a wide pool is a wider, self-cleaning
-    /// channel. Capped at 60 to keep startup MTU testing reasonable.
+    /// Candidate pool fed to the engine (carrier-first wide union, ≤60). The
+    /// engine MTU-tests/auto-disables and balances across the survivors.
     public static func candidates(settings: AppSettings) -> [String] {
+        wideUnion(settings: settings, limit: 60)
+    }
+
+    /// Larger pool used only for PROBING. The engine still receives just the
+    /// working subset that the probe keeps.
+    public static func fullPool(settings: AppSettings) -> [String] {
+        wideUnion(settings: settings, limit: 200)
+    }
+
+    private static func wideUnion(settings: AppSettings, limit: Int) -> [String] {
         let catalog = AppConfigService.shared.current()
         if settings.useFastResolvers {
-            return uniqueOrdered(catalog.fast.isEmpty ? catalog.all : catalog.fast)
+            let base = catalog.fast.isEmpty ? catalog.all : catalog.fast
+            return Array(uniqueOrdered(base).prefix(limit))
         }
 
         var ordered: [String] = []
@@ -74,7 +80,8 @@ public enum ResolverListService {
         ordered += catalog.all
 
         let wide = uniqueOrdered(ordered)
-        return wide.isEmpty ? uniqueOrdered(catalog.all) : Array(wide.prefix(60))
+        let pool = wide.isEmpty ? uniqueOrdered(catalog.all) : wide
+        return Array(pool.prefix(limit))
     }
 
     private static func uniqueOrdered(_ items: [String]) -> [String] {
@@ -98,11 +105,17 @@ public enum ResolverListService {
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return 0  // user pinned manual resolvers; nothing to probe
         }
-        let candidates = candidates(settings: settings)
-        guard !candidates.isEmpty else { return 0 }
-        let live = await ResolverProbe.probeAll(candidates)
-        setProbedLiveResolvers(live.map(\.resolver))
-        return live.count
+        let pool = fullPool(settings: settings)
+        guard !pool.isEmpty else { return 0 }
+        let live = await ResolverProbe.probeAll(pool)
+        // Keep the best ~60 reachable resolvers (fastest-first) for the engine.
+        let ranked = Array(live.map(\.resolver).prefix(60))
+        guard !ranked.isEmpty else { return 0 }
+        setProbedLiveResolvers(ranked)
+        // Persist this working set for the current network so a reconnect
+        // reuses it instantly and it survives app restarts.
+        ResolverHealthStore.shared.store(ranked, for: ResolverHealthStore.shared.currentNetworkKey())
+        return ranked.count
     }
 
     public static func resolve(settings: AppSettings, fetch: TextFetcher? = nil) throws -> String {
@@ -111,13 +124,17 @@ public enum ResolverListService {
             return manual
         }
 
-        // Server-driven catalog (no hardcoded DNS, no third-party repo).
-        // `AppConfigService.current()` returns cached/bundled data synchronously;
-        // a background refresh keeps it up to date for next time.
-        var list = candidates(settings: settings)
+        // Self-maintaining per-network working set: if we have a fresh probed
+        // set for the current network, use it directly (it's already filtered
+        // to resolvers that answered here, fastest-first).
+        let networkKey = ResolverHealthStore.shared.currentNetworkKey()
+        if let working = ResolverHealthStore.shared.working(for: networkKey), working.count >= 3 {
+            return working.joined(separator: "\n") + "\n"
+        }
 
-        // Prefer resolvers that a recent probe confirmed are reachable on this
-        // network: put them first (fastest-first), then the rest as fallback.
+        // Otherwise fall back to the catalog candidate pool, live-probed
+        // resolvers first. A background scan keeps the store up to date.
+        var list = candidates(settings: settings)
         let live = currentProbedLiveResolvers()
         if !live.isEmpty {
             let remainder = list.filter { !live.contains($0) }

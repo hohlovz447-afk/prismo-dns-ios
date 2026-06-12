@@ -36,6 +36,7 @@ public final class ClientViewModel: ObservableObject {
     private var stopTask: Task<Void, Never>?
     private var pingTasks: [UUID: Task<Void, Never>] = [:]
     private var lifecycleToken: UInt64 = 0
+    private var lastNetworkKey: String?
 
     /// Legacy display names of the DNS-tunnel profile, migrated to
     /// ``ConnectionProfile/bypassProfileName`` on load.
@@ -66,6 +67,14 @@ public final class ClientViewModel: ObservableObject {
             await AppConfigService.shared.refresh()
             await ResolverListService.scanResolvers(settings: settingsSnapshot)
         }
+
+        // Re-probe resolvers when the network changes (carrier/Wi-Fi switch or
+        // new restrictions) so the working set stays valid for the new network.
+        lastNetworkKey = ResolverHealthStore.shared.currentNetworkKey()
+        physicalInterfaceMonitor.objectWillChange
+            .debounce(for: .seconds(2), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in self?.rescanIfNetworkChanged() }
+            .store(in: &cancellables)
 
         // Silently re-validate the saved subscription on launch so an expired
         // or revoked token is reflected without the user re-pasting it.
@@ -553,6 +562,10 @@ public final class ClientViewModel: ObservableObject {
             calibrationStatus = AppLocalization.string("No resolvers to test.")
             return
         }
+        // Speed-testing is sequential (one engine instance per resolver, a few
+        // seconds each), so cap the set to keep calibration to a couple of
+        // minutes. The cheap UDP probe already pre-ranked these fastest-first.
+        let calibrationCandidates = Array(candidates.prefix(15))
 
         let runtimeDir = runtimeDirectory(for: profile).appendingPathComponent("calib", isDirectory: true)
         let boundInterface = physicalInterfaceMonitor.currentName
@@ -560,13 +573,13 @@ public final class ClientViewModel: ObservableObject {
         let boundIPv6 = physicalInterfaceMonitor.currentIPv6
 
         isCalibrating = true
-        calibrationStatus = AppLocalization.format("Testing resolvers… %d / %d", 0, candidates.count)
-        AppLogger.shared.append("Resolver calibration started (\(candidates.count) candidates).")
+        calibrationStatus = AppLocalization.format("Testing resolvers… %d / %d", 0, calibrationCandidates.count)
+        AppLogger.shared.append("Resolver calibration started (\(calibrationCandidates.count) candidates).")
 
         Task { [weak self] in
             let samples = await ResolverCalibrator.calibrate(
                 configTOML: configTOML,
-                candidates: candidates,
+                candidates: calibrationCandidates,
                 runtimeDirectory: runtimeDir,
                 boundInterface: boundInterface,
                 boundIPv4: boundIPv4,
@@ -602,6 +615,17 @@ public final class ClientViewModel: ObservableObject {
         let bestMbps = alive[0].kbitsPerSec / 1000.0
         calibrationStatus = AppLocalization.format("Kept %d fastest resolvers (best %.1f Mbit/s).", alive.count, bestMbps)
         AppLogger.shared.append("Resolver calibration done: kept \(alive.count), best \(String(format: "%.1f", bestMbps)) Mbit/s.")
+    }
+
+    /// Re-probes resolvers when the active network changes so the working set
+    /// matches the new carrier/Wi-Fi (different networks block different ones).
+    private func rescanIfNetworkChanged() {
+        let key = ResolverHealthStore.shared.currentNetworkKey()
+        guard key != lastNetworkKey else { return }
+        lastNetworkKey = key
+        let snapshot = settings
+        AppLogger.shared.append("Network changed (\(key)); re-probing resolvers.")
+        Task { await ResolverListService.scanResolvers(settings: snapshot) }
     }
 
     private func startCompletionAction(for token: UInt64) -> StartCompletionAction {
