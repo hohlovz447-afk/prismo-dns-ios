@@ -19,13 +19,53 @@ public struct AppConfigCatalog: Codable, Equatable {
             case mccMnc = "mcc_mnc"
             case resolvers
         }
+
+        public init(id: String, name: String, mccMnc: [String], resolvers: [String]) {
+            self.id = id
+            self.name = name
+            self.mccMnc = mccMnc
+            self.resolvers = resolvers
+        }
     }
 
     public let version: Int
     public let carriers: [Carrier]
     public let fast: [String]
     public let yandex: [String]
+    /// Universal resolvers known NOT to shape bandwidth — tried first.
+    public let noshape: [String]
     public let all: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case version, carriers, fast, yandex, noshape, all
+    }
+
+    public init(
+        version: Int,
+        carriers: [Carrier],
+        fast: [String],
+        yandex: [String],
+        noshape: [String] = [],
+        all: [String]
+    ) {
+        self.version = version
+        self.carriers = carriers
+        self.fast = fast
+        self.yandex = yandex
+        self.noshape = noshape
+        self.all = all
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        carriers = try c.decode([Carrier].self, forKey: .carriers)
+        fast = try c.decode([String].self, forKey: .fast)
+        yandex = try c.decode([String].self, forKey: .yandex)
+        // Tolerate older payloads/caches that predate these fields.
+        noshape = try c.decodeIfPresent([String].self, forKey: .noshape) ?? []
+        all = try c.decodeIfPresent([String].self, forKey: .all) ?? []
+    }
 
     /// Returns the carrier whose MCC/MNC list contains `plmn` (e.g. "25001").
     public func carrier(forPLMN plmn: String) -> Carrier? {
@@ -37,29 +77,62 @@ public struct AppConfigCatalog: Codable, Equatable {
     }
 
     /// Built-in fallback used before the first successful fetch / offline.
-    /// Mirrors the backend catalog (`/api/app-config`) so the operator picker
-    /// is never empty and PLMN auto-detection works offline. The server
+    /// Mirrors the backend catalog (`/api/app-config`) — per-operator resolver
+    /// lists plus a universal non-shaping tier — so the picker is never empty
+    /// and PLMN auto-detection + a good default work offline. The server
     /// overrides this whenever it is reachable.
     public static let bundledFallback = AppConfigCatalog(
         version: 0,
         carriers: [
-            Carrier(id: "mts", name: "МТС", mccMnc: ["25001"],
-                    resolvers: ["213.87.0.1", "213.87.1.1", "213.234.192.7", "213.234.193.7"]),
-            Carrier(id: "beeline", name: "Билайн", mccMnc: ["25099"],
-                    resolvers: ["194.67.2.114", "194.67.1.154", "83.69.207.105", "83.69.207.107"]),
-            Carrier(id: "megafon", name: "Мегафон", mccMnc: ["25002"],
-                    resolvers: ["195.208.4.1", "195.208.5.1", "85.21.192.5", "62.112.106.130"]),
+            Carrier(id: "mts", name: "МТС", mccMnc: ["25001"], resolvers: [
+                "212.188.4.10", "195.34.32.116", "213.87.0.1", "213.87.1.1",
+                "213.87.142.95", "213.87.142.85", "213.87.142.94", "213.87.142.84",
+                "213.87.74.21", "213.87.74.5", "213.87.211.20", "213.87.210.20",
+            ]),
+            Carrier(id: "beeline", name: "Билайн", mccMnc: ["25099"], resolvers: [
+                "194.67.2.114", "194.67.1.154",
+                "85.249.22.248", "85.249.22.249", "85.249.22.251", "85.249.22.250",
+                "10.10.22.3",
+            ]),
+            Carrier(id: "megafon", name: "Мегафон", mccMnc: ["25002"], resolvers: [
+                "84.201.166.221", "84.201.166.139", "84.201.166.50", "84.201.166.116",
+                "83.169.217.22", "195.208.4.1",
+                "10.112.248.238", "10.112.250.2", "10.112.248.226",
+                "10.148.25.144", "10.205.171.77", "10.205.171.69",
+                "10.93.233.220", "10.93.233.252", "10.10.22.3",
+            ]),
             // Tele2 (25020), SberMobile (25035), Tinkoff/T-Mobile (25062) ride Tele2.
-            Carrier(id: "tele2", name: "Т2", mccMnc: ["25020", "25035", "25062"],
-                    resolvers: ["176.59.31.182", "176.59.31.183", "217.65.2.10", "217.65.5.10"]),
-            // Yota runs on Megafon's core (25011).
-            Carrier(id: "yota", name: "Yota", mccMnc: ["25011"],
-                    resolvers: ["195.208.4.1", "195.208.5.1", "77.88.8.8", "77.88.8.1"]),
-            Carrier(id: "volna", name: "Волна мобайл", mccMnc: ["25015"],
-                    resolvers: ["77.88.8.8", "77.88.8.1", "1.1.1.1", "8.8.8.8"]),
+            Carrier(id: "tele2", name: "Т2", mccMnc: ["25020", "25035", "25062"], resolvers: [
+                "176.59.62.125", "176.59.62.126", "176.59.31.182", "176.59.31.183",
+                "176.59.223.159", "176.59.95.243", "176.59.63.148", "176.59.63.204",
+                "176.59.127.156",
+            ]),
+            // Yota runs on Megafon's core (25011) — shares its resolvers.
+            Carrier(id: "yota", name: "Yota", mccMnc: ["25011"], resolvers: [
+                "84.201.166.221", "84.201.166.139", "84.201.166.50", "84.201.166.116",
+                "83.169.217.22", "195.208.4.1",
+                "10.112.248.238", "10.112.250.2", "10.112.248.226",
+                "10.148.25.144", "10.205.171.77", "10.205.171.69",
+                "10.93.233.220", "10.93.233.252",
+            ]),
+            Carrier(id: "volna", name: "Волна мобайл", mccMnc: ["25015"], resolvers: [
+                "80.245.112.23", "195.208.4.1", "194.147.49.16",
+            ]),
         ],
         fast: ["1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4"],
-        yandex: ["77.88.8.8", "77.88.8.1", "77.88.8.88", "77.88.8.2", "77.88.8.7", "77.88.8.3"],
-        all: ["77.88.8.8", "77.88.8.1", "77.88.8.88", "77.88.8.2", "77.88.8.7", "77.88.8.3"]
+        yandex: ["77.88.8.8", "77.88.8.1", "77.88.8.2", "77.88.8.3", "77.88.8.7", "77.88.8.88"],
+        noshape: [
+            "94.25.113.230", "95.167.150.28", "91.240.86.14", "85.95.168.122",
+            "185.22.235.137", "195.166.180.239", "188.0.190.35", "217.18.135.118",
+            "95.167.75.62", "95.167.26.10", "46.254.19.23", "46.243.233.247",
+            "81.200.149.54", "81.200.149.162", "79.174.92.201",
+        ],
+        all: [
+            "94.25.113.230", "95.167.150.28", "91.240.86.14", "85.95.168.122",
+            "185.22.235.137", "195.166.180.239", "188.0.190.35", "217.18.135.118",
+            "95.167.75.62", "95.167.26.10", "46.254.19.23", "46.243.233.247",
+            "81.200.149.54", "81.200.149.162", "79.174.92.201",
+            "77.88.8.8", "77.88.8.1", "77.88.8.2", "77.88.8.3", "77.88.8.7", "77.88.8.88",
+        ]
     )
 }

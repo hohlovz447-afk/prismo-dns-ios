@@ -65,17 +65,22 @@ public enum ResolverListService {
         }
 
         var ordered: [String] = []
+        // The active operator's own resolvers first (most relevant here),
         if let pinned = catalog.carrier(id: settings.resolverProviderID) {
             ordered += pinned.resolvers
         } else if let plmn = CarrierDetector.currentPLMN(),
                   let carrier = catalog.carrier(forPLMN: plmn) {
             ordered += carrier.resolvers
         }
+        // then the universal non-shaping tier (good speed on any network),
+        ordered += catalog.noshape
+        // then Yandex, then every other operator's resolvers as fill.
         ordered += catalog.yandex
         for carrier in catalog.carriers { ordered += carrier.resolvers }
 
         let curated = uniqueOrdered(ordered)
-        let base = curated.isEmpty ? uniqueOrdered(catalog.yandex) : curated
+        let fallback = uniqueOrdered(catalog.noshape + catalog.yandex)
+        let base = curated.isEmpty ? fallback : curated
         return Array(base.prefix(40))
     }
 
