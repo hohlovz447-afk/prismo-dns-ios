@@ -116,6 +116,15 @@ type ClientConfig struct {
 	ARQTerminalAckWaitTimeoutSec          float64           `toml:"ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS"`
 	Resolvers                             []ResolverAddress `toml:"-"`
 	ResolverMap                           map[string]int    `toml:"-"`
+
+	// DoH (DNS-over-HTTPS) bypass. When DoHUpstreamURL is non-empty the client
+	// starts an in-process DoH forwarder and routes ALL tunnel DNS through it,
+	// instead of the UDP resolver list. Used to defeat mobile white-list
+	// captivity by riding a whitelisted Yandex DoH endpoint.
+	DoHUpstreamURL string `toml:"DOH_UPSTREAM_URL"`
+	DoHUpstreamIP  string `toml:"DOH_UPSTREAM_IP"`
+	DoHUpstreamSNI string `toml:"DOH_UPSTREAM_SNI"`
+	DoHInsecure    bool   `toml:"DOH_INSECURE"`
 }
 
 type ClientConfigOverrides struct {

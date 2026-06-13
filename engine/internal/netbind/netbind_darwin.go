@@ -69,6 +69,27 @@ func listenUDPBound(network string, ifname string, local net.IP) (*net.UDPConn, 
 	return udp, nil
 }
 
+// dialTCPBound dials a TCP connection bound to the given interface + source IP,
+// mirroring dialUDPBound. Used by the engine's DoH transport on iOS.
+func dialTCPBound(ctx context.Context, network string, addr string, ifname string, local net.IP) (net.Conn, error) {
+	var ifaceIndex int
+	if ifname != "" {
+		ni, err := net.InterfaceByName(ifname)
+		if err != nil {
+			return nil, err
+		}
+		ifaceIndex = ni.Index
+	}
+
+	d := net.Dialer{
+		Control: boundInterfaceControl(ifaceIndex),
+	}
+	if local != nil {
+		d.LocalAddr = &net.TCPAddr{IP: local}
+	}
+	return d.DialContext(ctx, network, addr)
+}
+
 func boundInterfaceControl(ifaceIndex int) func(string, string, syscall.RawConn) error {
 	if ifaceIndex == 0 {
 		return nil

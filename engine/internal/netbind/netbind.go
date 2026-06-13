@@ -9,6 +9,7 @@
 package netbind
 
 import (
+	"context"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -18,10 +19,19 @@ var (
 	iface       atomic.Pointer[string]
 	addrV4      atomic.Pointer[string]
 	addrV6      atomic.Pointer[string]
+	udpUnbound  atomic.Bool
 	hooksMu     sync.Mutex
 	hooks       = map[uint64]func(){}
 	hookCounter uint64
 )
+
+// SetUDPUnbound toggles loopback-only UDP mode. When true, DialUDP/ListenUDP
+// skip all physical-interface binding and fall back to the OS default route.
+// This is used by the DoH-shim bypass: the tunnel's UDP traffic then flows only
+// to the in-process 127.0.0.1 forwarder (never leaving the device, so no
+// third-party VPN can capture it), while the shim's OUTBOUND HTTPS is still
+// interface-bound via DialTCPContext. Has no effect on TCP dialing.
+func SetUDPUnbound(b bool) { udpUnbound.Store(b) }
 
 // SetInterface records the BSD interface name (e.g. "en0", "pdp_ip0") that
 // every subsequent DialUDP should bind its socket to. Pass "" to disable
@@ -145,11 +155,41 @@ func fireHooks() {
 	}
 }
 
+// DialTCPContext dials addr ("host:port") over TCP, applying the same
+// physical-interface + source-IP binding as DialUDP. This lets the engine's
+// DoH transport open HTTPS connections that bypass any third-party iOS
+// NetworkExtension, exactly like the UDP tunnel sockets do.
+func DialTCPContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	name := Current()
+	v4 := CurrentIPv4()
+	v6 := CurrentIPv6()
+	if name == "" && v4 == "" && v6 == "" {
+		var d net.Dialer
+		return d.DialContext(ctx, network, addr)
+	}
+	var local net.IP
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+			if v6 != "" {
+				local = net.ParseIP(v6)
+			}
+		} else if v4 != "" {
+			local = net.ParseIP(v4)
+		}
+	} else if v4 != "" {
+		local = net.ParseIP(v4)
+	}
+	return dialTCPBound(ctx, network, addr, name, local)
+}
+
 // DialUDP dials raddr over UDP. When a physical interface and/or its
 // primary IP are configured, both setsockopt(IP_BOUND_IF) and bind(2) to
 // the local IP are applied. With nothing configured it falls back to
 // net.DialUDP.
 func DialUDP(network string, raddr *net.UDPAddr) (*net.UDPConn, error) {
+	if udpUnbound.Load() {
+		return net.DialUDP(network, nil, raddr)
+	}
 	name := Current()
 	v4 := CurrentIPv4()
 	v6 := CurrentIPv6()
@@ -174,6 +214,9 @@ func DialUDP(network string, raddr *net.UDPAddr) (*net.UDPConn, error) {
 // traffic. It applies the same interface/source-IP binding as DialUDP, which
 // is required for the async tunnel worker sockets on iOS.
 func ListenUDP(network string) (*net.UDPConn, error) {
+	if udpUnbound.Load() {
+		return net.ListenUDP(network, &net.UDPAddr{IP: unspecifiedIPForNetwork(network), Port: 0})
+	}
 	name := Current()
 	local := localIPForListen(network, CurrentIPv4(), CurrentIPv6())
 	if name == "" && local == nil {

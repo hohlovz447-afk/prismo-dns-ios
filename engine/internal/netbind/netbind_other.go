@@ -2,7 +2,10 @@
 
 package netbind
 
-import "net"
+import (
+	"context"
+	"net"
+)
 
 // On non-Darwin builds interface binding is a no-op; outbound UDP follows
 // the OS default route. The iOS routing-loop problem this package solves
@@ -24,4 +27,14 @@ func listenUDPBound(network string, _ string, local net.IP) (*net.UDPConn, error
 		local = unspecifiedIPForNetwork(network)
 	}
 	return net.ListenUDP(network, &net.UDPAddr{IP: local, Port: 0})
+}
+
+// dialTCPBound dials TCP with an optional source IP. Interface binding is a
+// no-op outside iOS (the routing-loop problem does not exist there).
+func dialTCPBound(ctx context.Context, network string, addr string, _ string, local net.IP) (net.Conn, error) {
+	d := net.Dialer{}
+	if local != nil {
+		d.LocalAddr = &net.TCPAddr{IP: local}
+	}
+	return d.DialContext(ctx, network, addr)
 }

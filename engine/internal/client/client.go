@@ -13,6 +13,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,6 +22,7 @@ import (
 	"prismo-dns-go/internal/arq"
 	"prismo-dns-go/internal/config"
 	dnsCache "prismo-dns-go/internal/dnscache"
+	"prismo-dns-go/internal/dohshim"
 	Enums "prismo-dns-go/internal/enums"
 	fragmentStore "prismo-dns-go/internal/fragmentstore"
 	"prismo-dns-go/internal/logger"
@@ -139,6 +142,10 @@ type Client struct {
 	// netbind change-hook handle; drops the UDP socket pool when the device
 	// switches physical interfaces (Wi-Fi ↔ cellular).
 	netbindHook netbind.HookHandle
+
+	// Optional in-process DoH forwarder (white-list bypass). When non-nil, all
+	// tunnel DNS is routed through it via a local 127.0.0.1 UDP resolver.
+	dohShim *dohshim.Shim
 }
 
 // clientStreamTXPacket represents a queued packet pending transmission or retransmission.
@@ -234,6 +241,7 @@ func BootstrapLoadedConfig(cfg config.ClientConfig, logPath string) (*Client, er
 	}
 
 	c := New(cfg, log, codec)
+	c.enableDoHShimIfConfigured()
 	if err := c.BuildConnectionMap(); err != nil {
 		if c.log != nil {
 			c.log.Errorf("<red>%v</red>", err)
@@ -241,6 +249,43 @@ func BootstrapLoadedConfig(cfg config.ClientConfig, logPath string) (*Client, er
 		return nil, err
 	}
 	return c, nil
+}
+
+// enableDoHShimIfConfigured starts the in-process DoH forwarder when the config
+// specifies a DoH upstream, and rewrites the resolver list to point exclusively
+// at the shim's local 127.0.0.1 endpoint. On any failure it logs and falls back
+// to the normal UDP resolver list (non-fatal).
+func (c *Client) enableDoHShimIfConfigured() {
+	url := strings.TrimSpace(c.cfg.DoHUpstreamURL)
+	if url == "" {
+		return
+	}
+	shim, addr, err := dohshim.Start(dohshim.Upstream{
+		URL:      url,
+		IP:       strings.TrimSpace(c.cfg.DoHUpstreamIP),
+		SNI:      strings.TrimSpace(c.cfg.DoHUpstreamSNI),
+		Insecure: c.cfg.DoHInsecure,
+	}, c.log.Infof)
+	if err != nil {
+		c.log.Warnf("⚠️ DoH bypass disabled (shim start failed: %v) — using UDP resolvers", err)
+		return
+	}
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		c.log.Warnf("⚠️ DoH bypass disabled (bad shim addr %q) — using UDP resolvers", addr)
+		shim.Close()
+		return
+	}
+	port, _ := strconv.Atoi(portStr)
+
+	// Tunnel UDP now flows only to loopback; disable interface binding for UDP
+	// (the shim's outbound HTTPS stays interface-bound via DialTCPContext).
+	netbind.SetUDPUnbound(true)
+
+	c.dohShim = shim
+	c.cfg.Resolvers = []config.ResolverAddress{{IP: host, Port: port}}
+	c.cfg.ResolverMap = map[string]int{host: port}
+	c.log.Infof("🔐 <green>DoH bypass active</green>: tunnel resolver <cyan>%s</cyan> → <yellow>%s</yellow>", addr, url)
 }
 
 func New(cfg config.ClientConfig, log *logger.Logger, codec *security.Codec) *Client {
@@ -345,6 +390,9 @@ func (c *Client) handleNetbindChange() {
 	}
 
 	c.closeResolverConnPools()
+	if c.dohShim != nil {
+		c.dohShim.OnNetworkChange()
+	}
 	if c.asyncCancel != nil {
 		c.requestSessionRestart("bound physical interface changed")
 	}
@@ -376,6 +424,11 @@ func (c *Client) Cleanup() {
 	if c.netbindHook != 0 {
 		netbind.RemoveHook(c.netbindHook)
 		c.netbindHook = 0
+	}
+	if c.dohShim != nil {
+		c.dohShim.Close()
+		c.dohShim = nil
+		netbind.SetUDPUnbound(false)
 	}
 }
 
