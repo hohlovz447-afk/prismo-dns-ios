@@ -629,6 +629,7 @@ public final class ClientViewModel: ObservableObject {
         pruneTask?.cancel()
         let key = ResolverHealthStore.shared.currentNetworkKey()
         pruneTask = Task { [weak self] in
+            var ticks = 0
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 30_000_000_000) // 30s
                 guard let self else { return }
@@ -640,6 +641,14 @@ public final class ClientViewModel: ObservableObject {
                 if !bad.isEmpty {
                     ResolverHealthStore.shared.prune(bad, for: key)
                     AppLogger.shared.append("Resolver health: pruned \(bad.count) underperformer(s).")
+                }
+                // Every ~5 min, contribute anonymized per-resolver health to the
+                // backend so the whole fleet's measurements keep the per-operator
+                // lists fresh (crowd-sourced, self-maintaining). Anonymous: only
+                // PLMN + loss/RTT counters, no token/user id.
+                ticks += 1
+                if ticks % 10 == 0 {
+                    await ResolverReportService.report(statsJSON: json)
                 }
             }
         }

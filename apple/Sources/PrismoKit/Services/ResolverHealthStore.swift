@@ -97,15 +97,6 @@ public final class ResolverHealthStore {
 
 
 /// One entry of the engine's passive per-resolver health JSON.
-private struct ResolverStatJSON: Decodable {
-    let resolver: String
-    let valid: Bool
-    let sent: UInt64
-    let acked: UInt64
-    let lost: UInt64
-    let rtt_ms: UInt64
-}
-
 public enum ResolverHealth {
     /// Parses the engine's `GetResolverStats` JSON and returns resolvers that
     /// clearly underperformed during the session — engine-invalidated or high
@@ -113,7 +104,7 @@ public enum ResolverHealth {
     /// purpose so good resolvers are never dropped.
     public static func badResolvers(fromJSON json: String) -> [String] {
         guard let data = json.data(using: .utf8),
-              let stats = try? JSONDecoder().decode([ResolverStatJSON].self, from: data) else {
+              let stats = try? JSONDecoder().decode([EngineResolverStat].self, from: data) else {
             return []
         }
         return stats.compactMap { s in

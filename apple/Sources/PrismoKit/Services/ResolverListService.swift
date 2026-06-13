@@ -66,10 +66,14 @@ public enum ResolverListService {
 
         var ordered: [String] = []
         // The active operator's own resolvers first (most relevant here),
+        // immediately followed by any crowd-validated resolvers proven to
+        // tunnel well on this operator by the rest of the fleet.
         if let pinned = catalog.carrier(id: settings.resolverProviderID) {
+            ordered += pinned.crowd
             ordered += pinned.resolvers
         } else if let plmn = CarrierDetector.currentPLMN(),
                   let carrier = catalog.carrier(forPLMN: plmn) {
+            ordered += carrier.crowd
             ordered += carrier.resolvers
         }
         // then the universal non-shaping tier (good speed on any network),

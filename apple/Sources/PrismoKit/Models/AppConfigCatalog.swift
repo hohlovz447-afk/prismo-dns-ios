@@ -13,18 +13,33 @@ public struct AppConfigCatalog: Codable, Equatable {
         /// active operator via CoreTelephony.
         public let mccMnc: [String]
         public let resolvers: [String]
+        /// Resolvers proven by the fleet to tunnel well on THIS operator (crowd-
+        /// validated, may include ones outside the static `resolvers` list).
+        /// Empty in older payloads/the bundled fallback.
+        public let crowd: [String]
 
         enum CodingKeys: String, CodingKey {
             case id, name
             case mccMnc = "mcc_mnc"
             case resolvers
+            case crowd
         }
 
-        public init(id: String, name: String, mccMnc: [String], resolvers: [String]) {
+        public init(id: String, name: String, mccMnc: [String], resolvers: [String], crowd: [String] = []) {
             self.id = id
             self.name = name
             self.mccMnc = mccMnc
             self.resolvers = resolvers
+            self.crowd = crowd
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(String.self, forKey: .id)
+            name = try c.decode(String.self, forKey: .name)
+            mccMnc = try c.decode([String].self, forKey: .mccMnc)
+            resolvers = try c.decode([String].self, forKey: .resolvers)
+            crowd = try c.decodeIfPresent([String].self, forKey: .crowd) ?? []
         }
     }
 
