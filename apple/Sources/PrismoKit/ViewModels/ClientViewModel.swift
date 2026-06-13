@@ -460,6 +460,12 @@ public final class ClientViewModel: ObservableObject {
                 #if os(iOS)
                 try self.backgroundRuntimeKeeper.start()
                 #endif
+                // Load the latest server-driven catalog (resolvers + per-operator
+                // tuning) BEFORE building the engine config, so the operator's
+                // tuning (e.g. lower packet duplication) reliably applies on this
+                // connect instead of racing the background refresh. Best-effort:
+                // refresh() falls back to cache and never throws.
+                await AppConfigService.shared.refresh()
                 try await Task.detached(priority: .userInitiated) { [engine = self.engine] in
                     try engine.start(
                         EngineStartOptions(
