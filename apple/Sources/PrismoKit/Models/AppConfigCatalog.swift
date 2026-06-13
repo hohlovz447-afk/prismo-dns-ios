@@ -43,6 +43,60 @@ public struct AppConfigCatalog: Codable, Equatable {
         }
     }
 
+    /// Server-driven tunnel throughput tuning (optional). Lets us tune the
+    /// engine's performance knobs — packet duplication, worker parallelism,
+    /// ARQ window, MTU bounds — live from the backend, globally and per
+    /// operator, with no app rebuild. Absent in older payloads.
+    public struct Tuning: Codable, Equatable {
+        public var packetDuplicationCount: Int?
+        public var setupPacketDuplicationCount: Int?
+        public var rxTxWorkers: Int?
+        public var tunnelProcessWorkers: Int?
+        public var maxPacketsPerBatch: Int?
+        public var arqWindowSize: Int?
+        public var maxUploadMTU: Int?
+        public var maxDownloadMTU: Int?
+        public var resolverBalancingStrategy: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case packetDuplicationCount = "packet_duplication_count"
+            case setupPacketDuplicationCount = "setup_packet_duplication_count"
+            case rxTxWorkers = "rx_tx_workers"
+            case tunnelProcessWorkers = "tunnel_process_workers"
+            case maxPacketsPerBatch = "max_packets_per_batch"
+            case arqWindowSize = "arq_window_size"
+            case maxUploadMTU = "max_upload_mtu"
+            case maxDownloadMTU = "max_download_mtu"
+            case resolverBalancingStrategy = "resolver_balancing_strategy"
+        }
+
+        /// Returns a copy with any field set in `override` taking precedence.
+        public func merged(with override: Tuning?) -> Tuning {
+            guard let o = override else { return self }
+            return Tuning(
+                packetDuplicationCount: o.packetDuplicationCount ?? packetDuplicationCount,
+                setupPacketDuplicationCount: o.setupPacketDuplicationCount ?? setupPacketDuplicationCount,
+                rxTxWorkers: o.rxTxWorkers ?? rxTxWorkers,
+                tunnelProcessWorkers: o.tunnelProcessWorkers ?? tunnelProcessWorkers,
+                maxPacketsPerBatch: o.maxPacketsPerBatch ?? maxPacketsPerBatch,
+                arqWindowSize: o.arqWindowSize ?? arqWindowSize,
+                maxUploadMTU: o.maxUploadMTU ?? maxUploadMTU,
+                maxDownloadMTU: o.maxDownloadMTU ?? maxDownloadMTU,
+                resolverBalancingStrategy: o.resolverBalancingStrategy ?? resolverBalancingStrategy
+            )
+        }
+    }
+
+    public struct TuningCatalog: Codable, Equatable {
+        public let defaults: Tuning?
+        public let byCarrier: [String: Tuning]?
+
+        enum CodingKeys: String, CodingKey {
+            case defaults = "default"
+            case byCarrier = "by_carrier"
+        }
+    }
+
     public let version: Int
     public let carriers: [Carrier]
     public let fast: [String]
@@ -53,9 +107,11 @@ public struct AppConfigCatalog: Codable, Equatable {
     /// Large raw candidate pool (curated + crawler-discovered). NOT for direct
     /// use — only an on-device canary-probe source. Empty in older payloads.
     public let pool: [String]
+    /// Optional server-driven throughput tuning (global + per operator).
+    public let tuning: TuningCatalog?
 
     enum CodingKeys: String, CodingKey {
-        case version, carriers, fast, yandex, noshape, all, pool
+        case version, carriers, fast, yandex, noshape, all, pool, tuning
     }
 
     public init(
@@ -65,7 +121,8 @@ public struct AppConfigCatalog: Codable, Equatable {
         yandex: [String],
         noshape: [String] = [],
         all: [String],
-        pool: [String] = []
+        pool: [String] = [],
+        tuning: TuningCatalog? = nil
     ) {
         self.version = version
         self.carriers = carriers
@@ -74,6 +131,7 @@ public struct AppConfigCatalog: Codable, Equatable {
         self.noshape = noshape
         self.all = all
         self.pool = pool
+        self.tuning = tuning
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,6 +144,21 @@ public struct AppConfigCatalog: Codable, Equatable {
         noshape = try c.decodeIfPresent([String].self, forKey: .noshape) ?? []
         all = try c.decodeIfPresent([String].self, forKey: .all) ?? []
         pool = try c.decodeIfPresent([String].self, forKey: .pool) ?? []
+        tuning = try c.decodeIfPresent(TuningCatalog.self, forKey: .tuning)
+    }
+
+    /// Effective tunnel tuning for the current network: the global default
+    /// merged with the active operator's override (pinned id wins, else PLMN).
+    /// Returns nil when the catalog carries no tuning at all.
+    public func resolvedTuning(plmn: String?, pinnedCarrierID: String?) -> Tuning? {
+        guard let tuning else { return nil }
+        var carrierID = pinnedCarrierID?.isEmpty == false ? pinnedCarrierID : nil
+        if carrierID == nil, let plmn, let c = carrier(forPLMN: plmn) {
+            carrierID = c.id
+        }
+        let override = carrierID.flatMap { tuning.byCarrier?[$0] }
+        let base = tuning.defaults ?? Tuning()
+        return base.merged(with: override)
     }
 
     /// Returns the carrier whose MCC/MNC list contains `plmn` (e.g. "25001").

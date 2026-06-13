@@ -10,6 +10,23 @@ public enum ConfigBuilder {
         let user = escape(settings.socksUser)
         let pass = escape(settings.socksPass)
 
+        // Server-driven, per-operator throughput tuning (optional). Falls back
+        // to the profile / built-in defaults when the backend supplies nothing,
+        // so behaviour is unchanged offline or on older catalogs.
+        let tuning = AppConfigService.shared.current().resolvedTuning(
+            plmn: CarrierDetector.currentPLMN(),
+            pinnedCarrierID: settings.resolverProviderID
+        )
+        let dupCount = tuning?.packetDuplicationCount ?? profile.packetDuplicationCount
+        let setupDup = tuning?.setupPacketDuplicationCount ?? profile.setupPacketDuplicationCount
+        let rxTxWorkers = tuning?.rxTxWorkers ?? 4
+        let procWorkers = tuning?.tunnelProcessWorkers ?? 6
+        let packetsPerBatch = tuning?.maxPacketsPerBatch ?? 8
+        let arqWindow = tuning?.arqWindowSize ?? 1000
+        let maxUploadMTU = tuning?.maxUploadMTU ?? 150
+        let maxDownloadMTU = tuning?.maxDownloadMTU ?? 4000
+        let balancing = tuning?.resolverBalancingStrategy ?? profile.resolverBalancingStrategy.rawValue
+
         return """
         # Auto-generated client config — do not edit manually.
         DOMAINS = ["\(domain)"]
@@ -34,9 +51,9 @@ public enum ConfigBuilder {
         LOCAL_DNS_CACHE_PERSIST_TO_FILE = false
         LOCAL_DNS_CACHE_FLUSH_INTERVAL_SECONDS = 60.0
 
-        RESOLVER_BALANCING_STRATEGY = \(profile.resolverBalancingStrategy.rawValue)
-        PACKET_DUPLICATION_COUNT = \(profile.packetDuplicationCount)
-        SETUP_PACKET_DUPLICATION_COUNT = \(profile.setupPacketDuplicationCount)
+        RESOLVER_BALANCING_STRATEGY = \(balancing)
+        PACKET_DUPLICATION_COUNT = \(dupCount)
+        SETUP_PACKET_DUPLICATION_COUNT = \(setupDup)
         STREAM_RESOLVER_FAILOVER_RESEND_THRESHOLD = 2
         STREAM_RESOLVER_FAILOVER_COOLDOWN = 2.5
         RECHECK_INACTIVE_SERVERS_ENABLED = true
@@ -50,16 +67,16 @@ public enum ConfigBuilder {
 
         MIN_UPLOAD_MTU = 38
         MIN_DOWNLOAD_MTU = 200
-        MAX_UPLOAD_MTU = 150
-        MAX_DOWNLOAD_MTU = 4000
+        MAX_UPLOAD_MTU = \(maxUploadMTU)
+        MAX_DOWNLOAD_MTU = \(maxDownloadMTU)
         AUTO_REMOVE_LOW_MTU_SERVERS = true
         MTU_TEST_RETRIES = 2
         MTU_TEST_TIMEOUT = 2.0
         MTU_TEST_PARALLELISM = 32
         SAVE_MTU_SERVERS_TO_FILE = false
 
-        RX_TX_WORKERS = 4
-        TUNNEL_PROCESS_WORKERS = 6
+        RX_TX_WORKERS = \(rxTxWorkers)
+        TUNNEL_PROCESS_WORKERS = \(procWorkers)
         TUNNEL_PACKET_TIMEOUT_SECONDS = 10.0
         DISPATCHER_IDLE_POLL_INTERVAL_SECONDS = 0.020
         RX_CHANNEL_SIZE = 4096
@@ -82,8 +99,8 @@ public enum ConfigBuilder {
         PING_COOL_THRESHOLD_SECONDS = 20.0
         PING_COLD_THRESHOLD_SECONDS = 30.0
 
-        MAX_PACKETS_PER_BATCH = 8
-        ARQ_WINDOW_SIZE = 1000
+        MAX_PACKETS_PER_BATCH = \(packetsPerBatch)
+        ARQ_WINDOW_SIZE = \(arqWindow)
         ARQ_INITIAL_RTO_SECONDS = 0.5
         ARQ_MAX_RTO_SECONDS = 3.0
         ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.5
