@@ -49,6 +49,10 @@ public final class AppConfigService {
         let url = baseURL.appendingPathComponent("api").appendingPathComponent("app-config")
         var request = URLRequest(url: url)
         request.timeoutInterval = 15
+        // Always fetch a fresh catalog on launch, ignoring the local HTTP cache,
+        // so server-side resolver/tuning changes propagate on the next app
+        // start instead of being pinned by a previous response's max-age.
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("PrismoDNS-iOS", forHTTPHeaderField: "User-Agent")
 
         do {
