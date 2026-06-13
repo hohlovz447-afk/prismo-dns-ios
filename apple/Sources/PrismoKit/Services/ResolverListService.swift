@@ -113,13 +113,39 @@ public enum ResolverListService {
         guard !pool.isEmpty else { return 0 }
         let live = await ResolverProbe.probeAll(pool)
         // Keep the reachable curated resolvers (fastest-first) for the engine.
-        let ranked = Array(live.map(\.resolver).prefix(40))
+        var ranked = Array(live.map(\.resolver).prefix(40))
         guard !ranked.isEmpty else { return 0 }
+
+        // Canary testing: on ~1 in 4 scans, mix in a few reachable candidates
+        // from the large crawler-grown pool. Once in the engine's set they get
+        // real tunnel measurements that are reported back to the backend, so the
+        // whole fleet discovers new working resolvers per network — without ever
+        // flooding the set (capped) so speed is unaffected. Bad ones are pruned.
+        if Int.random(in: 0..<4) == 0 {
+            let canaries = await probeCanaries(settings: settings, exclude: ranked)
+            if !canaries.isEmpty {
+                ranked = Array((ranked + canaries).prefix(40))
+            }
+        }
+
         setProbedLiveResolvers(ranked)
         // Persist this working set for the current network so a reconnect
         // reuses it instantly and it survives app restarts.
         ResolverHealthStore.shared.store(ranked, for: ResolverHealthStore.shared.currentNetworkKey())
         return ranked.count
+    }
+
+    /// Probes a small random sample of the raw candidate pool and returns the
+    /// reachable ones (capped), excluding `exclude`. Used for fleet canary
+    /// testing of crawler-discovered resolvers.
+    private static func probeCanaries(settings: AppSettings, exclude: [String]) async -> [String] {
+        let pool = AppConfigService.shared.current().pool
+        guard !pool.isEmpty else { return [] }
+        let excludeSet = Set(exclude)
+        let sample = Array(pool.filter { !excludeSet.contains($0) }.shuffled().prefix(8))
+        guard !sample.isEmpty else { return [] }
+        let live = await ResolverProbe.probeAll(sample)
+        return Array(live.map(\.resolver).prefix(3))
     }
 
     public static func resolve(settings: AppSettings, fetch: TextFetcher? = nil) throws -> String {

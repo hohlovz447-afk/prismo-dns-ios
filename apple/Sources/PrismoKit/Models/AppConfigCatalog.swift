@@ -50,9 +50,12 @@ public struct AppConfigCatalog: Codable, Equatable {
     /// Universal resolvers known NOT to shape bandwidth — tried first.
     public let noshape: [String]
     public let all: [String]
+    /// Large raw candidate pool (curated + crawler-discovered). NOT for direct
+    /// use — only an on-device canary-probe source. Empty in older payloads.
+    public let pool: [String]
 
     enum CodingKeys: String, CodingKey {
-        case version, carriers, fast, yandex, noshape, all
+        case version, carriers, fast, yandex, noshape, all, pool
     }
 
     public init(
@@ -61,7 +64,8 @@ public struct AppConfigCatalog: Codable, Equatable {
         fast: [String],
         yandex: [String],
         noshape: [String] = [],
-        all: [String]
+        all: [String],
+        pool: [String] = []
     ) {
         self.version = version
         self.carriers = carriers
@@ -69,6 +73,7 @@ public struct AppConfigCatalog: Codable, Equatable {
         self.yandex = yandex
         self.noshape = noshape
         self.all = all
+        self.pool = pool
     }
 
     public init(from decoder: Decoder) throws {
@@ -80,6 +85,7 @@ public struct AppConfigCatalog: Codable, Equatable {
         // Tolerate older payloads/caches that predate these fields.
         noshape = try c.decodeIfPresent([String].self, forKey: .noshape) ?? []
         all = try c.decodeIfPresent([String].self, forKey: .all) ?? []
+        pool = try c.decodeIfPresent([String].self, forKey: .pool) ?? []
     }
 
     /// Returns the carrier whose MCC/MNC list contains `plmn` (e.g. "25001").
