@@ -107,10 +107,15 @@ public enum ResolverHealth {
               let stats = try? JSONDecoder().decode([EngineResolverStat].self, from: data) else {
             return []
         }
-        return stats.compactMap { s in
-            guard s.sent >= 20 else { return nil }
-            let highLoss = s.lost * 2 > s.sent
-            return (!s.valid || highLoss) ? s.resolver : nil
-        }
+        // Only judge resolvers that actually carried enough traffic this cycle.
+        let observed = stats.filter { $0.sent >= 20 }
+        guard observed.count >= 4 else { return [] }
+        let bad = observed.filter { !$0.valid || $0.lost * 2 > $0.sent }
+        // If MOST resolvers look bad, the network is the problem (e.g. an
+        // operator "white-list" throttling that drops tunnel traffic uniformly),
+        // not these specific resolvers. Pruning then just strands the working
+        // set — so only prune when the bad ones are a clear minority.
+        guard bad.count * 2 <= observed.count else { return [] }
+        return bad.map { $0.resolver }
     }
 }
