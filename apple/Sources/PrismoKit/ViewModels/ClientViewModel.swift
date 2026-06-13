@@ -37,6 +37,7 @@ public final class ClientViewModel: ObservableObject {
     private var pingTasks: [UUID: Task<Void, Never>] = [:]
     private var lifecycleToken: UInt64 = 0
     private var lastNetworkKey: String?
+    private var pruneTask: Task<Void, Never>?
 
     /// Legacy display names of the DNS-tunnel profile, migrated to
     /// ``ConnectionProfile/bypassProfileName`` on load.
@@ -496,6 +497,7 @@ public final class ClientViewModel: ObservableObject {
                     self.status = .ready
                     self.activeSocksPort = settingsSnapshot.socksPort
                     AppLogger.shared.append("Tunnel ready. SOCKS5 proxy at 127.0.0.1:\(settingsSnapshot.socksPort).")
+                    self.startResolverHealthPruning()
                 }
             } catch {
                 await MainActor.run {
@@ -515,6 +517,7 @@ public final class ClientViewModel: ObservableObject {
         lifecycleToken &+= 1
         let token = lifecycleToken
         startTask?.cancel()
+        pruneTask?.cancel()
         status = .stopping
         AppLogger.shared.append("Stopping tunnel...")
 
@@ -619,6 +622,29 @@ public final class ClientViewModel: ObservableObject {
 
     /// Re-probes resolvers when the active network changes so the working set
     /// matches the new carrier/Wi-Fi (different networks block different ones).
+    /// While connected, periodically reads passive per-resolver health from the
+    /// engine and prunes underperformers from the persisted working set, so the
+    /// app learns which resolvers actually work on this network over time.
+    private func startResolverHealthPruning() {
+        pruneTask?.cancel()
+        let key = ResolverHealthStore.shared.currentNetworkKey()
+        pruneTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30s
+                guard let self else { return }
+                guard self.status == .ready else { continue }
+                let json = await Task.detached(priority: .utility) { [engine = self.engine] in
+                    engine.currentResolverStatsJSON()
+                }.value
+                let bad = ResolverHealth.badResolvers(fromJSON: json)
+                if !bad.isEmpty {
+                    ResolverHealthStore.shared.prune(bad, for: key)
+                    AppLogger.shared.append("Resolver health: pruned \(bad.count) underperformer(s).")
+                }
+            }
+        }
+    }
+
     private func rescanIfNetworkChanged() {
         let key = ResolverHealthStore.shared.currentNetworkKey()
         guard key != lastNetworkKey else { return }
@@ -645,6 +671,7 @@ public final class ClientViewModel: ObservableObject {
     }
 
     public func shutdownForAppTermination() {
+        pruneTask?.cancel()
         if status.isRunning {
             engine.stop()
         }

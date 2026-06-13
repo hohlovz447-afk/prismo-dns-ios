@@ -864,6 +864,48 @@ func (b *Balancer) AllConnections() []Connection {
 	return result
 }
 
+// ResolverStat is a passive, per-resolver health snapshot derived from real
+// traffic (no extra probing): packets sent/acked/lost and average RTT.
+type ResolverStat struct {
+	Resolver  string
+	Key       string
+	IsValid   bool
+	Sent      uint64
+	Acked     uint64
+	Lost      uint64
+	RTTMicros uint64
+}
+
+// ResolverStatsSnapshot returns a passive health snapshot for every resolver,
+// so the app can prune/rank its working set from real-traffic behaviour.
+func (b *Balancer) ResolverStatsSnapshot() []ResolverStat {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	out := make([]ResolverStat, 0, len(b.connections))
+	for i := range b.connections {
+		conn := b.connections[i]
+		var sent, acked, lost, sum, count uint64
+		if i < len(b.stats) && b.stats[i] != nil {
+			sent, acked, lost, sum, count = b.stats[i].snapshot()
+		}
+		var avgRTT uint64
+		if count > 0 {
+			avgRTT = sum / count
+		}
+		out = append(out, ResolverStat{
+			Resolver:  conn.Resolver,
+			Key:       conn.Key,
+			IsValid:   conn.IsValid,
+			Sent:      sent,
+			Acked:     acked,
+			Lost:      lost,
+			RTTMicros: avgRTT,
+		})
+	}
+	return out
+}
+
 func (b *Balancer) NextInactiveConnectionForHealthCheck(now time.Time, minInterval time.Duration) (Connection, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

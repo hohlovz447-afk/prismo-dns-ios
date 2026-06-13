@@ -176,6 +176,15 @@ func (c *Client) IsSessionReady() bool {
 	return c.SessionReady()
 }
 
+// ResolverStats returns a passive per-resolver health snapshot (from the
+// balancer) so the mobile layer can prune/rank its working set.
+func (c *Client) ResolverStats() []ResolverStat {
+	if c == nil || c.balancer == nil {
+		return nil
+	}
+	return c.balancer.ResolverStatsSnapshot()
+}
+
 func (c *Client) ResponseMode() uint8 {
 	return c.responseMode
 }

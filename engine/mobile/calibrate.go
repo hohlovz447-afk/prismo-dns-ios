@@ -8,6 +8,7 @@ package mobile
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -26,6 +27,44 @@ func SessionReady() bool {
 		return false
 	}
 	return c.SessionReady()
+}
+
+// GetResolverStats returns a JSON array of passive per-resolver health derived
+// from real traffic: [{"resolver","valid","sent","acked","lost","rtt_ms"}].
+// Used by the app to prune/rank its working set during a session (no probing).
+// Returns "[]" when nothing is running.
+func GetResolverStats() string {
+	mu.Lock()
+	c := activeClient
+	mu.Unlock()
+	if c == nil {
+		return "[]"
+	}
+	stats := c.ResolverStats()
+	type jsonStat struct {
+		Resolver string `json:"resolver"`
+		Valid    bool   `json:"valid"`
+		Sent     uint64 `json:"sent"`
+		Acked    uint64 `json:"acked"`
+		Lost     uint64 `json:"lost"`
+		RTTms    uint64 `json:"rtt_ms"`
+	}
+	out := make([]jsonStat, 0, len(stats))
+	for _, s := range stats {
+		out = append(out, jsonStat{
+			Resolver: s.Resolver,
+			Valid:    s.IsValid,
+			Sent:     s.Sent,
+			Acked:    s.Acked,
+			Lost:     s.Lost,
+			RTTms:    s.RTTMicros / 1000,
+		})
+	}
+	data, err := json.Marshal(out)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
 }
 
 // MeasureDownloadBytesPerSec downloads from url through the local SOCKS5 proxy

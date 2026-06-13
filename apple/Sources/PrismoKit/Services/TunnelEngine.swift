@@ -75,6 +75,16 @@ public final class TunnelEngine {
         return currentSocksPort
     }
 
+    /// Passive per-resolver health from the engine as JSON (no probing), for
+    /// on-device pruning of the working set. "[]" when not running.
+    public func currentResolverStatsJSON() -> String {
+        #if canImport(Mobile)
+        return MobileGetResolverStats()
+        #else
+        return "[]"
+        #endif
+    }
+
     public func start(_ options: EngineStartOptions, log: @escaping (String) -> Void) throws {
         try validate(options.profile, settings: options.settings)
 
