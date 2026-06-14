@@ -429,7 +429,7 @@ public final class ClientViewModel: ObservableObject {
     }
 
     public func start() {
-        startConnection(forceDoH: false)
+        startConnection(forceDoH: settings.forceDoHMode)
     }
 
     /// Starts the tunnel. `forceDoH` routes all DNS through the whitelisted DoH

@@ -18,6 +18,10 @@ public struct AppSettings: Codable, Equatable {
     public var resolverProviderID: String
     public var useFastResolvers: Bool
     public var systemVPNEnabled: Bool
+    /// When true, the tunnel forces DoH-over-HTTPS mode (all DNS through the
+    /// whitelisted Yandex DoH shim) instead of plain UDP resolvers. Used as a
+    /// stable fallback on operators that block or heavily throttle UDP/53.
+    public var forceDoHMode: Bool
 
     public init(
         socksPort: Int = Self.defaultSocksPort,
@@ -27,7 +31,8 @@ public struct AppSettings: Codable, Equatable {
         customResolvers: String = "",
         resolverProviderID: String = Self.noResolverProviderID,
         useFastResolvers: Bool = false,
-        systemVPNEnabled: Bool = false
+        systemVPNEnabled: Bool = false,
+        forceDoHMode: Bool = false
     ) {
         self.socksPort = Self.normalizedSocksPort(socksPort)
         self.socksUser = socksUser
@@ -37,6 +42,7 @@ public struct AppSettings: Codable, Equatable {
         self.resolverProviderID = Self.normalizedResolverProviderID(resolverProviderID)
         self.useFastResolvers = useFastResolvers
         self.systemVPNEnabled = systemVPNEnabled
+        self.forceDoHMode = forceDoHMode
     }
 
     public init(from decoder: Decoder) throws {
@@ -51,6 +57,7 @@ public struct AppSettings: Codable, Equatable {
         resolverProviderID = Self.normalizedResolverProviderID(providerID)
         useFastResolvers = try container.decodeIfPresent(Bool.self, forKey: .useFastResolvers) ?? false
         systemVPNEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemVPNEnabled) ?? false
+        forceDoHMode = try container.decodeIfPresent(Bool.self, forKey: .forceDoHMode) ?? false
     }
 
     public static func normalizedSocksPort(_ port: Int) -> Int {

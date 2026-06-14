@@ -77,6 +77,14 @@ public struct SettingsView: View {
             }
 
             Section {
+                Toggle(AppLocalization.string("Stable mode (DoH over HTTPS)"), isOn: $settings.forceDoHMode)
+            } header: {
+                Text(AppLocalization.string("White-list bypass"))
+            } footer: {
+                Text(AppLocalization.string("Routes all tunnel DNS over HTTPS through a whitelisted resolver. Enable when the operator blocks or throttles plain DNS (e.g. some Tele2 white-lists). Slower but far more stable on restricted networks. Reconnect to apply."))
+            }
+
+            Section {
                 ResolversTextEditor(text: $settings.customResolvers)
             } footer: {
                 Text(AppLocalization.string("One resolver per line. Manual entries override the selected provider or speed-unrestricted servers. Leave empty to use the selected remote list."))
