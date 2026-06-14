@@ -126,6 +126,10 @@ type ClientConfig struct {
 	DoHUpstreamIPs string `toml:"DOH_UPSTREAM_IPS"`
 	DoHUpstreamSNI string `toml:"DOH_UPSTREAM_SNI"`
 	DoHInsecure    bool   `toml:"DOH_INSECURE"`
+	// Extra heterogeneous DoH upstreams (e.g. our own high-capacity gateway),
+	// each with its own URL/IP/SNI/insecure. Format: "url|ip|sni|insecure"
+	// entries separated by ";". Started as additional parallel channels.
+	DoHExtraUpstreams string `toml:"DOH_EXTRA_UPSTREAMS"`
 }
 
 type ClientConfigOverrides struct {

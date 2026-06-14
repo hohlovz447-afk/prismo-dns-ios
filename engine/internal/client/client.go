@@ -281,26 +281,49 @@ func (c *Client) enableDoHShimIfConfigured() {
 	sni := strings.TrimSpace(c.cfg.DoHUpstreamSNI)
 	var resolvers []config.ResolverAddress
 	resolverMap := map[string]int{}
-	for _, ip := range ips {
-		shim, addr, err := dohshim.Start(dohshim.Upstream{
-			URL:      url,
-			IP:       ip,
-			SNI:      sni,
-			Insecure: c.cfg.DoHInsecure,
-		}, c.log.Infof)
+	addShim := func(up dohshim.Upstream) {
+		shim, addr, err := dohshim.Start(up, c.log.Infof)
 		if err != nil {
-			c.log.Warnf("⚠️ DoH shim start failed for ip=%q: %v", ip, err)
-			continue
+			c.log.Warnf("⚠️ DoH shim start failed (ip=%q): %v", up.IP, err)
+			return
 		}
 		host, portStr, err := net.SplitHostPort(addr)
 		if err != nil {
 			shim.Close()
-			continue
+			return
 		}
 		port, _ := strconv.Atoi(portStr)
 		c.dohShims = append(c.dohShims, shim)
 		resolvers = append(resolvers, config.ResolverAddress{IP: host, Port: port})
 		resolverMap[host] = port
+	}
+
+	for _, ip := range ips {
+		addShim(dohshim.Upstream{URL: url, IP: ip, SNI: sni, Insecure: c.cfg.DoHInsecure})
+	}
+
+	// Extra heterogeneous upstreams (e.g. our own gateway): "url|ip|sni|insecure;..."
+	for _, entry := range strings.Split(strings.TrimSpace(c.cfg.DoHExtraUpstreams), ";") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		f := strings.Split(entry, "|")
+		if len(f) < 1 || strings.TrimSpace(f[0]) == "" {
+			continue
+		}
+		up := dohshim.Upstream{URL: strings.TrimSpace(f[0])}
+		if len(f) > 1 {
+			up.IP = strings.TrimSpace(f[1])
+		}
+		if len(f) > 2 {
+			up.SNI = strings.TrimSpace(f[2])
+		}
+		if len(f) > 3 {
+			v := strings.TrimSpace(f[3])
+			up.Insecure = v == "1" || strings.EqualFold(v, "true")
+		}
+		addShim(up)
 	}
 
 	if len(c.dohShims) == 0 {

@@ -103,6 +103,23 @@ public struct AppConfigCatalog: Codable, Equatable {
     /// white-list). Absent in older payloads → the built-in Yandex default
     /// (`DoHConfig.yandexDefault`) is used.
     public struct DoHConfig: Codable, Equatable {
+        public struct Extra: Codable, Equatable {
+            public let url: String
+            public let ip: String
+            public let sni: String
+            public let insecure: Bool
+            public init(url: String, ip: String = "", sni: String = "", insecure: Bool = false) {
+                self.url = url; self.ip = ip; self.sni = sni; self.insecure = insecure
+            }
+            public init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                url = try c.decode(String.self, forKey: .url)
+                ip = try c.decodeIfPresent(String.self, forKey: .ip) ?? ""
+                sni = try c.decodeIfPresent(String.self, forKey: .sni) ?? ""
+                insecure = try c.decodeIfPresent(Bool.self, forKey: .insecure) ?? false
+            }
+        }
+
         public let url: String
         public let ip: String
         /// Multiple upstream IPs (e.g. Yandex anycast) — one parallel DoH
@@ -110,13 +127,17 @@ public struct AppConfigCatalog: Codable, Equatable {
         public let ips: [String]
         public let sni: String
         public let insecure: Bool
+        /// Extra heterogeneous upstreams (e.g. our own high-capacity gateway),
+        /// added as additional parallel channels.
+        public let extra: [Extra]
 
-        public init(url: String, ip: String = "", ips: [String] = [], sni: String = "", insecure: Bool = false) {
+        public init(url: String, ip: String = "", ips: [String] = [], sni: String = "", insecure: Bool = false, extra: [Extra] = []) {
             self.url = url
             self.ip = ip
             self.ips = ips
             self.sni = sni
             self.insecure = insecure
+            self.extra = extra
         }
 
         public init(from decoder: Decoder) throws {
@@ -126,11 +147,17 @@ public struct AppConfigCatalog: Codable, Equatable {
             ips = try c.decodeIfPresent([String].self, forKey: .ips) ?? []
             sni = try c.decodeIfPresent(String.self, forKey: .sni) ?? ""
             insecure = try c.decodeIfPresent(Bool.self, forKey: .insecure) ?? false
+            extra = try c.decodeIfPresent([Extra].self, forKey: .extra) ?? []
         }
 
         /// Comma-separated IP list for the engine's DOH_UPSTREAM_IPS, or "".
         public var ipsCSV: String {
             (ips.isEmpty ? [ip] : ips).filter { !$0.isEmpty }.joined(separator: ",")
+        }
+
+        /// "url|ip|sni|insecure;..." for the engine's DOH_EXTRA_UPSTREAMS, or "".
+        public var extraCSV: String {
+            extra.map { "\($0.url)|\($0.ip)|\($0.sni)|\($0.insecure ? "1" : "0")" }.joined(separator: ";")
         }
 
         /// Yandex public DoH (AS13238, whitelisted by RU mobile operators incl.

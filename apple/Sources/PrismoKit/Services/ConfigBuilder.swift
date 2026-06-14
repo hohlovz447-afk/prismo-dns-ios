@@ -41,6 +41,7 @@ public enum ConfigBuilder {
             DOH_UPSTREAM_IPS = "\(escape(doh.ipsCSV))"
             DOH_UPSTREAM_SNI = "\(escape(doh.sni))"
             DOH_INSECURE = \(doh.insecure ? "true" : "false")
+            DOH_EXTRA_UPSTREAMS = "\(escape(doh.extraCSV))"
             """
         }
 

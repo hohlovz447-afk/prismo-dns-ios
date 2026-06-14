@@ -645,35 +645,87 @@ public final class ClientViewModel: ObservableObject {
     /// While connected, periodically reads passive per-resolver health from the
     /// engine and prunes underperformers from the persisted working set, so the
     /// app learns which resolvers actually work on this network over time.
-    /// After connect, polls the engine for an established session. If none
-    /// appears within the deadline — the hallmark of a white-list blocking
-    /// UDP/53 — it transparently restarts the tunnel in DoH mode (whitelisted
-    /// Yandex DoH over 443). Runs only for the initial UDP attempt; a DoH
-    /// session is never re-fallen-back. The generous deadline ensures a normal
-    /// (slow-MTU) connect never triggers it.
+    /// After connect, watches the tunnel and transparently switches to DoH when
+    /// plain UDP can't deliver:
+    ///   • Phase 1 — no session establishes within the deadline (hard white-list
+    ///     blocking UDP/53).
+    ///   • Phase 2 — a session IS up but the tunnel is sending heavily while
+    ///     almost nothing is acked for a sustained window (operator throttling
+    ///     DNS to death). Idle or healthy tunnels never trigger.
+    /// Runs only for the initial UDP attempt; a DoH session is never re-fallen-back.
     private func armDoHFallbackWatchdog(token: UInt64, alreadyDoH: Bool) {
         dohWatchdogTask?.cancel()
         guard !alreadyDoH else { return }
         dohWatchdogTask = Task { [weak self] in
             guard let self else { return }
+
+            // Phase 1: wait up to 40s for an established session.
             let deadline = Date().addingTimeInterval(40)
+            var sessionUp = false
             while !Task.isCancelled && Date() < deadline {
                 try? await Task.sleep(nanoseconds: 2_500_000_000) // 2.5s
                 guard self.lifecycleToken == token else { return } // superseded
                 let ready = await Task.detached(priority: .utility) { [engine = self.engine] in
                     engine.isSessionReady
                 }.value
-                if ready { return } // UDP tunnel established — nothing to do
+                if ready { sessionUp = true; break }
             }
-            guard !Task.isCancelled,
-                  self.lifecycleToken == token,
-                  self.status == .ready else { return }
-            AppLogger.shared.append("No tunnel session over UDP — switching to DoH (white-list bypass)…")
-            await Task.detached(priority: .userInitiated) { [engine = self.engine] in
-                engine.stop()
-            }.value
-            self.startConnection(forceDoH: true)
+            if !sessionUp {
+                guard !Task.isCancelled, self.lifecycleToken == token, self.status == .ready else { return }
+                await self.fallbackToDoH(token: token, reason: "no tunnel session over UDP")
+                return
+            }
+
+            // Phase 2: session up — detect a throttled-to-death tunnel.
+            var lastSent: UInt64 = 0
+            var lastAcked: UInt64 = 0
+            (lastSent, lastAcked) = await self.engineTrafficTotals()
+            var stalledWindows = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
+                guard self.lifecycleToken == token, self.status == .ready else { return }
+                let (sent, acked) = await self.engineTrafficTotals()
+                let dSent = sent >= lastSent ? sent - lastSent : 0
+                let dAcked = acked >= lastAcked ? acked - lastAcked : 0
+                lastSent = sent; lastAcked = acked
+                // Heavy send + almost nothing acked (<10%) = dead tunnel.
+                if dSent >= 60 && dAcked * 10 < dSent {
+                    stalledWindows += 1
+                } else {
+                    stalledWindows = 0
+                }
+                if stalledWindows >= 4 { // ~40s sustained
+                    guard self.status == .ready, self.lifecycleToken == token else { return }
+                    await self.fallbackToDoH(token: token, reason: "tunnel throttled (sending but no acks)")
+                    return
+                }
+            }
         }
+    }
+
+    /// Sums sent/acked across all resolvers from the engine's passive stats.
+    private func engineTrafficTotals() async -> (sent: UInt64, acked: UInt64) {
+        let json = await Task.detached(priority: .utility) { [engine = self.engine] in
+            engine.currentResolverStatsJSON()
+        }.value
+        guard let data = json.data(using: .utf8),
+              let stats = try? JSONDecoder().decode([EngineResolverStat].self, from: data) else {
+            return (0, 0)
+        }
+        var s: UInt64 = 0, a: UInt64 = 0
+        for st in stats { s += st.sent; a += st.acked }
+        return (s, a)
+    }
+
+    /// Stops the current (UDP) tunnel and restarts it in DoH mode.
+    private func fallbackToDoH(token: UInt64, reason: String) async {
+        guard self.lifecycleToken == token else { return }
+        AppLogger.shared.append("⚠️ \(reason) — switching to DoH (white-list bypass)…")
+        await Task.detached(priority: .userInitiated) { [engine = self.engine] in
+            engine.stop()
+        }.value
+        guard self.lifecycleToken == token else { return }
+        self.startConnection(forceDoH: true)
     }
 
     private func startResolverHealthPruning() {
