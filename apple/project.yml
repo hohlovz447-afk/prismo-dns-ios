@@ -9,7 +9,7 @@ settings:
     MARKETING_VERSION: 0.1.6
     CURRENT_PROJECT_VERSION: 7
 packages:
-  ZanozaApple:
+  PrismoApple:
     path: .
 targets:
   PrismoDNS:
@@ -17,9 +17,9 @@ targets:
     platform: iOS
     deploymentTarget: "16.0"
     sources:
-      - path: Sources/ZanozaApp
+      - path: Sources/PrismoApp
     info:
-      path: Sources/ZanozaApp/Info.plist
+      path: Sources/PrismoApp/Info.plist
       properties:
         CFBundleDisplayName: Prismo DNS
         CFBundleShortVersionString: $(MARKETING_VERSION)
@@ -35,15 +35,15 @@ targets:
           - CFBundleURLName: org.prismovpn.dns.deeplink
             CFBundleURLSchemes:
               - prismodns
-              - zanoza
+              - prismo
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
     dependencies:
-      - package: ZanozaApple
-        product: ZanozaKit
+      - package: PrismoApple
+        product: PrismoKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.prismovpn.dns.ios

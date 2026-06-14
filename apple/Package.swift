@@ -5,14 +5,14 @@ import PackageDescription
 // The Mobile.xcframework must be built before resolving this package.
 // Generate it via: apple/Scripts/build-xcframework.sh
 let package = Package(
-    name: "ZanozaApple",
+    name: "PrismoApple",
     defaultLocalization: "en",
     platforms: [
         .iOS(.v16),
         .macOS(.v13),
     ],
     products: [
-        .library(name: "ZanozaKit", targets: ["ZanozaKit"]),
+        .library(name: "PrismoKit", targets: ["PrismoKit"]),
     ],
     targets: [
         .binaryTarget(
@@ -28,7 +28,7 @@ let package = Package(
         // and the `.target(name: "Singbox", ...)` dependency below, plus
         // OTHER_LDFLAGS = -lresolv in project.yml.
         .target(
-            name: "ZanozaKit",
+            name: "PrismoKit",
             dependencies: [
                 .target(name: "Mobile", condition: .when(platforms: [.iOS])),
             ],
@@ -37,8 +37,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "ZanozaKitTests",
-            dependencies: ["ZanozaKit"]
+            name: "PrismoKitTests",
+            dependencies: ["PrismoKit"]
         ),
     ]
 )

@@ -4,19 +4,19 @@
 
 </div>
 
-# Zanoza
+# Prismo DNS
 
-iOS client for [MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN) — a DNS-tunneling VPN for extreme-censorship networks.
+iOS client Prismo DNS — a DNS-tunneling VPN for extreme-censorship networks.
 
-It wraps the upstream MasterDnsVPN Go client into an iOS app, exposes its local SOCKS5 proxy at `127.0.0.1:41080`, and keeps the tunnel running while you switch to another app (Shadowrocket, Happ, etc.) that runs the proxy.
+It exposes a local SOCKS5 proxy at `127.0.0.1:41080` and keeps the tunnel running while you switch to another app (Shadowrocket, Happ, etc.) that runs the proxy.
 The app does **not** create an iOS VPN profile, since it is unsigned.
 
 ## Repository layout
 
 ```
-Zanoza/
+prismo-dns-ios/
 ├── apple/                            # Xcode / SwiftPM project
-│   ├── Package.swift                 # ZanozaKit shared library
+│   ├── Package.swift                 # PrismoKit shared library
 │   ├── project.yml                   # XcodeGen project definition
 │   ├── Frameworks/                   # Mobile.xcframework lands here
 │   ├── Scripts/
@@ -25,18 +25,18 @@ Zanoza/
 │   │   ├── prepare-xcode.sh             # xcodegen wrapper
 │   │   └── generate-icon.py             # AppIcon generator (Pillow)
 │   ├── Sources/
-│   │   ├── ZanozaApp/            # iOS app target
+│   │   ├── PrismoApp/            # iOS app target
 │   │   │   ├── Assets.xcassets/AppIcon.appiconset/
 │   │   │   ├── Info.plist            # UIBackgroundModes=[audio]
-│   │   │   └── ZanozaApp.swift
-│   │   └── ZanozaKit/            # Shared SwiftPM library
+│   │   │   └── PrismoApp.swift
+│   │   └── PrismoKit/            # Shared SwiftPM library
 │   │       ├── Models/               # ConnectionProfile, ClientStatus
-│   │       ├── Services/             # MasterDnsEngine, BackgroundRuntimeKeeper, …
+│   │       ├── Services/             # TunnelEngine, BackgroundRuntimeKeeper, …
 │   │       ├── ViewModels/           # ClientViewModel
 │   │       ├── Views/                # ContentView, ImportProfileSheet, …
 │   │       └── Resources/{en,ru}.lproj/Localizable.strings
-│   └── Tests/ZanozaKitTests/
-└── masterdns/                        # Vendored MasterDnsVPN fork
+│   └── Tests/PrismoKitTests/
+└── engine/                           # Go DNS-tunnel core
     ├── go.mod                        # adds golang.org/x/mobile dep
     └── mobile/                       # gomobile-bindable wrapper package
         ├── mobile.go                 #   Start/Stop/IsRunning/SetLogWriter
@@ -62,7 +62,7 @@ apple/Scripts/prepare-xcode.sh
 
 # 3. Build an unsigned IPA
 apple/Scripts/build-ios-unsigned-local-ipa.sh
-#   → apple/.build/ios-unsigned-local/Zanoza-unsigned.ipa
+#   → apple/.build/ios-unsigned-local/PrismoDNS-unsigned.ipa
 ```
 
 The IPA is unsigned. Sign and install it on a device using:
@@ -74,14 +74,9 @@ Enable **Settings → Privacy & Security → Developer Mode** on the iPhone befo
 
 ## Usage
 
-1. Launch Zanoza and tap **Import**.
-2. Enter the delegated domain from your MasterDnsVPN server (the same value as the NS record, e.g. `v.example.com`).
+1. Launch Prismo DNS and tap **Import**.
+2. Enter the delegated domain from your server (the same value as the NS record, e.g. `v.example.com`).
 3. Enter the shared encryption key (must match the server-side key).
 4. Tap **Import**, then the connect (power) button. **Encryption Type** must match the server's server_config.toml **DATA_ENCRYPTION_METHOD** (XOR by default in both)
 5. The SOCKS5 proxy comes up at `127.0.0.1:41080`. Open Shadowrocket / Happ / etc. and add a SOCKS5 proxy pointing at that address.
-6. Zanoza keeps the listener alive while you switch to other apps. Killing Zanoza from the app switcher stops the tunnel.
-
-## Credits
-
-- Upstream protocol and Go client: [MasterDnsVPN by MasterkinG32](https://github.com/masterking32/MasterDnsVPN)
-- iOS application shell follows the structure of [Godwit](https://github.com/plumbicon/godwit) (MIT)
+6. Prismo DNS keeps the listener alive while you switch to other apps. Killing the app from the app switcher stops the tunnel.

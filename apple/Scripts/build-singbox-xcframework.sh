@@ -4,7 +4,7 @@ set -euo pipefail
 # Builds Singbox.xcframework from the singbox/ Go module via gomobile bind.
 # This powers the app's "Speed" mode (regular VLESS servers through sing-box).
 #
-# Mirrors build-xcframework.sh (the MasterDNS core) so CI reuses the same
+# Mirrors build-xcframework.sh (the Prismo core) so CI reuses the same
 # Go + gomobile + Xcode toolchain.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

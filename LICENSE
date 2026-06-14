@@ -1,10 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Zanoza contributors
-
-The Zanoza iOS client embeds and re-distributes the MasterDnsVPN Go
-client by MasterkinG32 (https://github.com/masterking32/MasterDnsVPN).
-See `masterdns/LICENSE` for that project's license terms.
+Copyright (c) 2026 Prismo DNS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

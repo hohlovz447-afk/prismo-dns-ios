@@ -9,7 +9,7 @@
 //
 // The package is named `singbox` (not `mobile`) so gomobile generates
 // Singbox-prefixed symbols (SingboxStart, SingboxLogWriterProtocol, ...) and
-// avoids colliding with the existing Mobile.xcframework (MasterDNS core).
+// avoids colliding with the existing Mobile.xcframework (Prismo core).
 package singbox
 
 import (

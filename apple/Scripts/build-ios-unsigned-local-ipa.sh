@@ -40,7 +40,7 @@ gomobile init >/dev/null 2>&1 || true
 if command -v xcodegen >/dev/null 2>&1; then
   (cd "$APPLE_DIR" && xcodegen generate)
 else
-  echo "xcodegen not found; assuming Zanoza.xcodeproj is already generated." >&2
+  echo "xcodegen not found; assuming PrismoDNS.xcodeproj is already generated." >&2
 fi
 
 rm -rf "$BUILD_DIR"
