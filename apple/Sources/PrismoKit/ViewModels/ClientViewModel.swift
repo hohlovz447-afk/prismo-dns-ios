@@ -38,6 +38,9 @@ public final class ClientViewModel: ObservableObject {
     private var lifecycleToken: UInt64 = 0
     private var lastNetworkKey: String?
     private var pruneTask: Task<Void, Never>?
+    /// Watches for a UDP tunnel session after connect; if none establishes
+    /// (white-list blocking :53) it transparently restarts in DoH mode.
+    private var dohWatchdogTask: Task<Void, Never>?
 
     /// Legacy display names of the DNS-tunnel profile, migrated to
     /// ``ConnectionProfile/bypassProfileName`` on load.
@@ -426,6 +429,12 @@ public final class ClientViewModel: ObservableObject {
     }
 
     public func start() {
+        startConnection(forceDoH: false)
+    }
+
+    /// Starts the tunnel. `forceDoH` routes all DNS through the whitelisted DoH
+    /// shim (used by the auto-fallback when plain UDP can't establish a session).
+    private func startConnection(forceDoH: Bool) {
         guard let id = selectedProfileID,
               let profile = profiles.first(where: { $0.id == id }) else { return }
         if let message = validationMessage(for: profile) {
@@ -450,7 +459,9 @@ public final class ClientViewModel: ObservableObject {
         lifecycleToken &+= 1
         let token = lifecycleToken
         status = .starting
-        AppLogger.shared.append("Starting tunnel for \(profile.domain)...")
+        AppLogger.shared.append(forceDoH
+            ? "Starting tunnel for \(profile.domain) via DoH (white-list bypass)..."
+            : "Starting tunnel for \(profile.domain)...")
 
         startTask?.cancel()
         startTask = Task { [weak self] in
@@ -474,7 +485,8 @@ public final class ClientViewModel: ObservableObject {
                             runtimeDirectory: runtimeDir,
                             boundInterface: boundInterface,
                             boundIPv4: boundIPv4,
-                            boundIPv6: boundIPv6
+                            boundIPv6: boundIPv6,
+                            forceDoH: forceDoH
                         ),
                         log: { line in
                             Task { @MainActor in AppLogger.shared.append(line) }
@@ -504,6 +516,7 @@ public final class ClientViewModel: ObservableObject {
                     self.activeSocksPort = settingsSnapshot.socksPort
                     AppLogger.shared.append("Tunnel ready. SOCKS5 proxy at 127.0.0.1:\(settingsSnapshot.socksPort).")
                     self.startResolverHealthPruning()
+                    self.armDoHFallbackWatchdog(token: token, alreadyDoH: forceDoH)
                 }
             } catch {
                 await MainActor.run {
@@ -524,6 +537,7 @@ public final class ClientViewModel: ObservableObject {
         let token = lifecycleToken
         startTask?.cancel()
         pruneTask?.cancel()
+        dohWatchdogTask?.cancel()
         status = .stopping
         AppLogger.shared.append("Stopping tunnel...")
 
@@ -631,6 +645,37 @@ public final class ClientViewModel: ObservableObject {
     /// While connected, periodically reads passive per-resolver health from the
     /// engine and prunes underperformers from the persisted working set, so the
     /// app learns which resolvers actually work on this network over time.
+    /// After connect, polls the engine for an established session. If none
+    /// appears within the deadline — the hallmark of a white-list blocking
+    /// UDP/53 — it transparently restarts the tunnel in DoH mode (whitelisted
+    /// Yandex DoH over 443). Runs only for the initial UDP attempt; a DoH
+    /// session is never re-fallen-back. The generous deadline ensures a normal
+    /// (slow-MTU) connect never triggers it.
+    private func armDoHFallbackWatchdog(token: UInt64, alreadyDoH: Bool) {
+        dohWatchdogTask?.cancel()
+        guard !alreadyDoH else { return }
+        dohWatchdogTask = Task { [weak self] in
+            guard let self else { return }
+            let deadline = Date().addingTimeInterval(40)
+            while !Task.isCancelled && Date() < deadline {
+                try? await Task.sleep(nanoseconds: 2_500_000_000) // 2.5s
+                guard self.lifecycleToken == token else { return } // superseded
+                let ready = await Task.detached(priority: .utility) { [engine = self.engine] in
+                    engine.isSessionReady
+                }.value
+                if ready { return } // UDP tunnel established — nothing to do
+            }
+            guard !Task.isCancelled,
+                  self.lifecycleToken == token,
+                  self.status == .ready else { return }
+            AppLogger.shared.append("No tunnel session over UDP — switching to DoH (white-list bypass)…")
+            await Task.detached(priority: .userInitiated) { [engine = self.engine] in
+                engine.stop()
+            }.value
+            self.startConnection(forceDoH: true)
+        }
+    }
+
     private func startResolverHealthPruning() {
         pruneTask?.cancel()
         let key = ResolverHealthStore.shared.currentNetworkKey()

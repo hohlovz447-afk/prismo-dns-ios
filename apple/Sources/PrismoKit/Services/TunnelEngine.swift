@@ -28,6 +28,9 @@ public struct EngineStartOptions {
     public let boundInterface: String
     public let boundIPv4: String
     public let boundIPv6: String
+    /// When true, the engine config is built with a whitelisted DoH upstream
+    /// and all tunnel DNS is routed through the in-process DoH shim.
+    public let forceDoH: Bool
 
     public init(
         profile: ConnectionProfile,
@@ -35,7 +38,8 @@ public struct EngineStartOptions {
         runtimeDirectory: URL,
         boundInterface: String = "",
         boundIPv4: String = "",
-        boundIPv6: String = ""
+        boundIPv6: String = "",
+        forceDoH: Bool = false
     ) {
         self.profile = profile
         self.settings = settings
@@ -43,6 +47,7 @@ public struct EngineStartOptions {
         self.boundInterface = boundInterface
         self.boundIPv4 = boundIPv4
         self.boundIPv6 = boundIPv6
+        self.forceDoH = forceDoH
     }
 }
 
@@ -85,10 +90,20 @@ public final class TunnelEngine {
         #endif
     }
 
+    /// True once the running tunnel has an established session and can carry
+    /// traffic. Used by the app's DoH auto-fallback watchdog.
+    public var isSessionReady: Bool {
+        #if canImport(Mobile)
+        return MobileSessionReady()
+        #else
+        return false
+        #endif
+    }
+
     public func start(_ options: EngineStartOptions, log: @escaping (String) -> Void) throws {
         try validate(options.profile, settings: options.settings)
 
-        let configTOML = ConfigBuilder.buildTOML(for: options.profile, settings: options.settings)
+        let configTOML = ConfigBuilder.buildTOML(for: options.profile, settings: options.settings, forceDoH: options.forceDoH)
         let resolvers = try ResolverListService.resolve(settings: options.settings)
 
         let fm = FileManager.default

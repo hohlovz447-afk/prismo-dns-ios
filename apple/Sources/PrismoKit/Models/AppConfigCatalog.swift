@@ -97,6 +97,43 @@ public struct AppConfigCatalog: Codable, Equatable {
         }
     }
 
+    /// Server-driven DoH (DNS-over-HTTPS) upstream used by the white-list
+    /// bypass. The app routes the tunnel's DNS through this whitelisted DoH
+    /// endpoint when plain UDP resolvers are blocked (e.g. Tele2 home
+    /// white-list). Absent in older payloads → the built-in Yandex default
+    /// (`DoHConfig.yandexDefault`) is used.
+    public struct DoHConfig: Codable, Equatable {
+        public let url: String
+        public let ip: String
+        public let sni: String
+        public let insecure: Bool
+
+        public init(url: String, ip: String = "", sni: String = "", insecure: Bool = false) {
+            self.url = url
+            self.ip = ip
+            self.sni = sni
+            self.insecure = insecure
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            url = try c.decode(String.self, forKey: .url)
+            ip = try c.decodeIfPresent(String.self, forKey: .ip) ?? ""
+            sni = try c.decodeIfPresent(String.self, forKey: .sni) ?? ""
+            insecure = try c.decodeIfPresent(Bool.self, forKey: .insecure) ?? false
+        }
+
+        /// Yandex public DoH (AS13238, whitelisted by RU mobile operators incl.
+        /// Tele2). Recursively resolves our tunnel domain like any public
+        /// resolver, but over HTTPS/443 which the white-list lets through.
+        public static let yandexDefault = DoHConfig(
+            url: "https://common.dot.dns.yandex.net/dns-query",
+            ip: "77.88.8.1",
+            sni: "common.dot.dns.yandex.net",
+            insecure: false
+        )
+    }
+
     public let version: Int
     public let carriers: [Carrier]
     public let fast: [String]
@@ -109,9 +146,11 @@ public struct AppConfigCatalog: Codable, Equatable {
     public let pool: [String]
     /// Optional server-driven throughput tuning (global + per operator).
     public let tuning: TuningCatalog?
+    /// Optional server-driven DoH upstream for the white-list bypass.
+    public let doh: DoHConfig?
 
     enum CodingKeys: String, CodingKey {
-        case version, carriers, fast, yandex, noshape, all, pool, tuning
+        case version, carriers, fast, yandex, noshape, all, pool, tuning, doh
     }
 
     public init(
@@ -122,7 +161,8 @@ public struct AppConfigCatalog: Codable, Equatable {
         noshape: [String] = [],
         all: [String],
         pool: [String] = [],
-        tuning: TuningCatalog? = nil
+        tuning: TuningCatalog? = nil,
+        doh: DoHConfig? = nil
     ) {
         self.version = version
         self.carriers = carriers
@@ -132,6 +172,7 @@ public struct AppConfigCatalog: Codable, Equatable {
         self.all = all
         self.pool = pool
         self.tuning = tuning
+        self.doh = doh
     }
 
     public init(from decoder: Decoder) throws {
@@ -145,6 +186,7 @@ public struct AppConfigCatalog: Codable, Equatable {
         all = try c.decodeIfPresent([String].self, forKey: .all) ?? []
         pool = try c.decodeIfPresent([String].self, forKey: .pool) ?? []
         tuning = try c.decodeIfPresent(TuningCatalog.self, forKey: .tuning)
+        doh = try c.decodeIfPresent(DoHConfig.self, forKey: .doh)
     }
 
     /// Effective tunnel tuning for the current network: the global default

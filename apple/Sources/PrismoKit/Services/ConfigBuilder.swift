@@ -4,7 +4,7 @@ import Foundation
 // SOCKS listener and resolver list come from the app-wide AppSettings;
 // profile contributes domain, key, encryption and routing knobs.
 public enum ConfigBuilder {
-    public static func buildTOML(for profile: ConnectionProfile, settings: AppSettings) -> String {
+    public static func buildTOML(for profile: ConnectionProfile, settings: AppSettings, forceDoH: Bool = false) -> String {
         let domain = escape(profile.domain)
         let key = escape(profile.encryptionKey)
         let user = escape(settings.socksUser)
@@ -26,6 +26,22 @@ public enum ConfigBuilder {
         let maxUploadMTU = tuning?.maxUploadMTU ?? 150
         let maxDownloadMTU = tuning?.maxDownloadMTU ?? 4000
         let balancing = tuning?.resolverBalancingStrategy ?? profile.resolverBalancingStrategy.rawValue
+
+        // White-list bypass: when forced, route ALL tunnel DNS through a
+        // whitelisted DoH endpoint (Yandex by default, server-overridable).
+        // The engine starts an in-process DoH↔UDP shim and ignores the UDP
+        // resolver list. Empty otherwise → unchanged UDP behaviour.
+        var dohBlock = ""
+        if forceDoH {
+            let doh = AppConfigService.shared.current().doh ?? AppConfigCatalog.DoHConfig.yandexDefault
+            dohBlock = """
+
+            DOH_UPSTREAM_URL = "\(escape(doh.url))"
+            DOH_UPSTREAM_IP = "\(escape(doh.ip))"
+            DOH_UPSTREAM_SNI = "\(escape(doh.sni))"
+            DOH_INSECURE = \(doh.insecure ? "true" : "false")
+            """
+        }
 
         return """
         # Auto-generated client config — do not edit manually.
@@ -117,6 +133,7 @@ public enum ConfigBuilder {
         ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 90.0
 
         LOG_LEVEL = "\(profile.logLevel.rawValue)"
+        \(dohBlock)
         """
     }
 
