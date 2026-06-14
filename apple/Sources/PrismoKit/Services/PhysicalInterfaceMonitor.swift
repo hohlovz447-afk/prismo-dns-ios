@@ -81,8 +81,27 @@ public final class PhysicalInterfaceMonitor: ObservableObject {
 
     private func apply(_ next: Snapshot) {
         if next == snapshot { return }
+        let previous = snapshot
+        // Keep the latest snapshot for the currentIPv4/IPv6 getters, but only
+        // re-bind the Go engine — which RESTARTS the tunnel session — when the
+        // binding meaningfully changes. iOS rotates temporary IPv6 privacy
+        // addresses (RFC 4941) every few minutes and NWPathMonitor fires often;
+        // pushing those churned addresses would restart the session repeatedly
+        // and the user sees the connection "drop every few minutes". So we
+        // re-bind only on a real interface switch (name) or a primary-IPv4
+        // change, and fall back to IPv6 only on a v6-only network.
         snapshot = next
-        push(next)
+        let bindingChanged: Bool
+        if next.name != previous.name {
+            bindingChanged = true
+        } else if !next.ipv4.isEmpty || !previous.ipv4.isEmpty {
+            bindingChanged = next.ipv4 != previous.ipv4
+        } else {
+            bindingChanged = next.ipv6 != previous.ipv6
+        }
+        if bindingChanged {
+            push(next)
+        }
     }
 
     private func push(_ snap: Snapshot) {
