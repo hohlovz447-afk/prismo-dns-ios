@@ -143,9 +143,10 @@ type Client struct {
 	// switches physical interfaces (Wi-Fi ↔ cellular).
 	netbindHook netbind.HookHandle
 
-	// Optional in-process DoH forwarder (white-list bypass). When non-nil, all
-	// tunnel DNS is routed through it via a local 127.0.0.1 UDP resolver.
-	dohShim *dohshim.Shim
+	// Optional in-process DoH forwarders (white-list bypass). When non-empty,
+	// all tunnel DNS is routed through them via local 127.0.0.1 UDP resolvers,
+	// one shim per upstream IP for parallel channels.
+	dohShims []*dohshim.Shim
 }
 
 // clientStreamTXPacket represents a queued packet pending transmission or retransmission.
@@ -251,41 +252,69 @@ func BootstrapLoadedConfig(cfg config.ClientConfig, logPath string) (*Client, er
 	return c, nil
 }
 
-// enableDoHShimIfConfigured starts the in-process DoH forwarder when the config
-// specifies a DoH upstream, and rewrites the resolver list to point exclusively
-// at the shim's local 127.0.0.1 endpoint. On any failure it logs and falls back
-// to the normal UDP resolver list (non-fatal).
+// enableDoHShimIfConfigured starts the in-process DoH forwarder(s) when the
+// config specifies a DoH upstream, and rewrites the resolver list to point
+// exclusively at the shims' local 127.0.0.1 endpoints. Multiple upstream IPs
+// (DOH_UPSTREAM_IPS, comma-separated) each get their own shim → the balancer
+// gets several parallel DoH channels (e.g. Yandex's anycast IPs), which dodges
+// per-connection rate limits and raises throughput. On any failure it logs and
+// falls back to the normal UDP resolver list (non-fatal).
 func (c *Client) enableDoHShimIfConfigured() {
 	url := strings.TrimSpace(c.cfg.DoHUpstreamURL)
 	if url == "" {
 		return
 	}
-	shim, addr, err := dohshim.Start(dohshim.Upstream{
-		URL:      url,
-		IP:       strings.TrimSpace(c.cfg.DoHUpstreamIP),
-		SNI:      strings.TrimSpace(c.cfg.DoHUpstreamSNI),
-		Insecure: c.cfg.DoHInsecure,
-	}, c.log.Infof)
-	if err != nil {
-		c.log.Warnf("⚠️ DoH bypass disabled (shim start failed: %v) — using UDP resolvers", err)
+
+	// Build the list of upstream IPs to pin (one shim each).
+	var ips []string
+	if list := strings.TrimSpace(c.cfg.DoHUpstreamIPs); list != "" {
+		for _, p := range strings.Split(list, ",") {
+			if ip := strings.TrimSpace(p); ip != "" {
+				ips = append(ips, ip)
+			}
+		}
+	}
+	if len(ips) == 0 {
+		ips = append(ips, strings.TrimSpace(c.cfg.DoHUpstreamIP)) // may be "" → shim resolves host itself
+	}
+
+	sni := strings.TrimSpace(c.cfg.DoHUpstreamSNI)
+	var resolvers []config.ResolverAddress
+	resolverMap := map[string]int{}
+	for _, ip := range ips {
+		shim, addr, err := dohshim.Start(dohshim.Upstream{
+			URL:      url,
+			IP:       ip,
+			SNI:      sni,
+			Insecure: c.cfg.DoHInsecure,
+		}, c.log.Infof)
+		if err != nil {
+			c.log.Warnf("⚠️ DoH shim start failed for ip=%q: %v", ip, err)
+			continue
+		}
+		host, portStr, err := net.SplitHostPort(addr)
+		if err != nil {
+			shim.Close()
+			continue
+		}
+		port, _ := strconv.Atoi(portStr)
+		c.dohShims = append(c.dohShims, shim)
+		resolvers = append(resolvers, config.ResolverAddress{IP: host, Port: port})
+		resolverMap[host] = port
+	}
+
+	if len(c.dohShims) == 0 {
+		c.log.Warnf("⚠️ DoH bypass disabled (no shim started) — using UDP resolvers")
 		return
 	}
-	host, portStr, err := net.SplitHostPort(addr)
-	if err != nil {
-		c.log.Warnf("⚠️ DoH bypass disabled (bad shim addr %q) — using UDP resolvers", addr)
-		shim.Close()
-		return
-	}
-	port, _ := strconv.Atoi(portStr)
 
 	// Tunnel UDP now flows only to loopback; disable interface binding for UDP
-	// (the shim's outbound HTTPS stays interface-bound via DialTCPContext).
+	// (each shim's outbound HTTPS stays interface-bound via DialTCPContext).
 	netbind.SetUDPUnbound(true)
 
-	c.dohShim = shim
-	c.cfg.Resolvers = []config.ResolverAddress{{IP: host, Port: port}}
-	c.cfg.ResolverMap = map[string]int{host: port}
-	c.log.Infof("🔐 <green>DoH bypass active</green>: tunnel resolver <cyan>%s</cyan> → <yellow>%s</yellow>", addr, url)
+	c.cfg.Resolvers = resolvers
+	c.cfg.ResolverMap = resolverMap
+	c.log.Infof("🔐 <green>DoH bypass active</green>: <yellow>%d</yellow> parallel channel(s) → <yellow>%s</yellow>", len(c.dohShims), url)
 }
 
 func New(cfg config.ClientConfig, log *logger.Logger, codec *security.Codec) *Client {
@@ -390,8 +419,8 @@ func (c *Client) handleNetbindChange() {
 	}
 
 	c.closeResolverConnPools()
-	if c.dohShim != nil {
-		c.dohShim.OnNetworkChange()
+	for _, s := range c.dohShims {
+		s.OnNetworkChange()
 	}
 	if c.asyncCancel != nil {
 		c.requestSessionRestart("bound physical interface changed")
@@ -425,9 +454,11 @@ func (c *Client) Cleanup() {
 		netbind.RemoveHook(c.netbindHook)
 		c.netbindHook = 0
 	}
-	if c.dohShim != nil {
-		c.dohShim.Close()
-		c.dohShim = nil
+	if len(c.dohShims) > 0 {
+		for _, s := range c.dohShims {
+			s.Close()
+		}
+		c.dohShims = nil
 		netbind.SetUDPUnbound(false)
 	}
 }

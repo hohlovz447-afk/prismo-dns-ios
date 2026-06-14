@@ -38,6 +38,7 @@ public enum ConfigBuilder {
 
             DOH_UPSTREAM_URL = "\(escape(doh.url))"
             DOH_UPSTREAM_IP = "\(escape(doh.ip))"
+            DOH_UPSTREAM_IPS = "\(escape(doh.ipsCSV))"
             DOH_UPSTREAM_SNI = "\(escape(doh.sni))"
             DOH_INSECURE = \(doh.insecure ? "true" : "false")
             """

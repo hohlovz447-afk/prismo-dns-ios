@@ -105,12 +105,16 @@ public struct AppConfigCatalog: Codable, Equatable {
     public struct DoHConfig: Codable, Equatable {
         public let url: String
         public let ip: String
+        /// Multiple upstream IPs (e.g. Yandex anycast) — one parallel DoH
+        /// channel per IP for higher throughput. Falls back to `ip` when empty.
+        public let ips: [String]
         public let sni: String
         public let insecure: Bool
 
-        public init(url: String, ip: String = "", sni: String = "", insecure: Bool = false) {
+        public init(url: String, ip: String = "", ips: [String] = [], sni: String = "", insecure: Bool = false) {
             self.url = url
             self.ip = ip
+            self.ips = ips
             self.sni = sni
             self.insecure = insecure
         }
@@ -119,16 +123,22 @@ public struct AppConfigCatalog: Codable, Equatable {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             url = try c.decode(String.self, forKey: .url)
             ip = try c.decodeIfPresent(String.self, forKey: .ip) ?? ""
+            ips = try c.decodeIfPresent([String].self, forKey: .ips) ?? []
             sni = try c.decodeIfPresent(String.self, forKey: .sni) ?? ""
             insecure = try c.decodeIfPresent(Bool.self, forKey: .insecure) ?? false
         }
 
+        /// Comma-separated IP list for the engine's DOH_UPSTREAM_IPS, or "".
+        public var ipsCSV: String {
+            (ips.isEmpty ? [ip] : ips).filter { !$0.isEmpty }.joined(separator: ",")
+        }
+
         /// Yandex public DoH (AS13238, whitelisted by RU mobile operators incl.
-        /// Tele2). Recursively resolves our tunnel domain like any public
-        /// resolver, but over HTTPS/443 which the white-list lets through.
+        /// Tele2). Six anycast IPs → six parallel DoH channels for throughput.
         public static let yandexDefault = DoHConfig(
             url: "https://common.dot.dns.yandex.net/dns-query",
             ip: "77.88.8.1",
+            ips: ["77.88.8.1", "77.88.8.8", "77.88.8.2", "77.88.8.3", "77.88.8.7", "77.88.8.88"],
             sni: "common.dot.dns.yandex.net",
             insecure: false
         )

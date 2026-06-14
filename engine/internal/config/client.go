@@ -123,6 +123,7 @@ type ClientConfig struct {
 	// captivity by riding a whitelisted Yandex DoH endpoint.
 	DoHUpstreamURL string `toml:"DOH_UPSTREAM_URL"`
 	DoHUpstreamIP  string `toml:"DOH_UPSTREAM_IP"`
+	DoHUpstreamIPs string `toml:"DOH_UPSTREAM_IPS"`
 	DoHUpstreamSNI string `toml:"DOH_UPSTREAM_SNI"`
 	DoHInsecure    bool   `toml:"DOH_INSECURE"`
 }
